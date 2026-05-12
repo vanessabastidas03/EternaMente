@@ -1,31 +1,157 @@
+# ============================================================
+# Version Catalog — EternaMente
+# Fuente única de verdad para versiones de dependencias
+# ============================================================
+
 [versions]
-agp = "9.2.1"
-coreKtx = "1.10.1"
-junit = "4.13.2"
-junitVersion = "1.1.5"
-espressoCore = "3.5.1"
-lifecycleRuntimeKtx = "2.6.1"
-activityCompose = "1.8.0"
-kotlin = "2.2.10"
-composeBom = "2026.02.01"
+# ── Build toolchain ─────────────────────────────────────────
+agp            = "8.7.3"    # 8.7.x + Gradle 8.11.1: combo estable con Kotlin 1.9.x
+kotlin         = "1.9.22"   # Compose BOM 2024.02.00 requiere Kotlin 1.9.x → compiler 1.5.8
+ksp            = "1.9.22-1.0.17"
+googleServices = "4.4.1"
+
+# ── AndroidX Core ────────────────────────────────────────────
+coreKtx              = "1.12.0"
+lifecycleRuntimeKtx  = "2.7.0"
+activityCompose      = "1.8.2"
+
+# ── Compose ──────────────────────────────────────────────────
+composeBom                   = "2024.02.00"
+composeCompilerExtension     = "1.5.8"   # Tie con Kotlin 1.9.22
+navigationCompose            = "2.7.7"
+accompanist                  = "0.34.0"
+
+# ── Hilt ─────────────────────────────────────────────────────
+hilt                  = "2.50"
+hiltNavigationCompose = "1.2.0"
+
+# ── Room + SQLCipher ─────────────────────────────────────────
+room      = "2.6.1"
+sqlcipher = "4.5.4"
+sqliteKtx = "2.4.0"
+
+# ── Async ────────────────────────────────────────────────────
+coroutines = "1.7.3"
+
+# ── DataStore ─────────────────────────────────────────────────
+datastorePreferences = "1.0.0"
+
+# ── TensorFlow Lite ──────────────────────────────────────────
+tensorflowLite        = "2.14.0"
+tensorflowLiteSupport = "0.4.4"
+
+# ── Firebase ─────────────────────────────────────────────────
+firebaseBom = "32.7.0"
+
+# ── WorkManager ──────────────────────────────────────────────
+workManager = "2.9.0"
+
+# ── Seguridad ────────────────────────────────────────────────
+securityCrypto = "1.1.0-alpha06"
+biometric      = "1.2.0-alpha05"
+
+# ── UI extras ─────────────────────────────────────────────────
+lottie = "6.3.0"
+coil   = "2.5.0"
+
+# ── Utilidades ───────────────────────────────────────────────
+timber = "5.0.1"
+
+# ── Testing ──────────────────────────────────────────────────
+junit         = "4.13.2"
+junitExt      = "1.1.5"
+espressoCore  = "3.5.1"
+mockk         = "1.13.9"
+turbine       = "1.1.0"
+
+# ── Debug only ───────────────────────────────────────────────
+leakcanary = "2.12"
+
 
 [libraries]
-androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+# ── AndroidX Core ────────────────────────────────────────────
+androidx-core-ktx             = { group = "androidx.core",      name = "core-ktx",             version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
-androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
-androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
-androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
-androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
-androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
-androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
-androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-activity-compose     = { group = "androidx.activity",  name = "activity-compose",     version.ref = "activityCompose" }
+
+# ── Compose (versiones gestionadas por el BOM) ───────────────
+androidx-compose-bom              = { group = "androidx.compose",          name = "compose-bom",                version.ref = "composeBom" }
+compose-ui                        = { group = "androidx.compose.ui",       name = "ui" }
+compose-ui-graphics               = { group = "androidx.compose.ui",       name = "ui-graphics" }
+compose-ui-tooling                = { group = "androidx.compose.ui",       name = "ui-tooling" }
+compose-ui-tooling-preview        = { group = "androidx.compose.ui",       name = "ui-tooling-preview" }
+compose-ui-test-manifest          = { group = "androidx.compose.ui",       name = "ui-test-manifest" }
+compose-ui-test-junit4            = { group = "androidx.compose.ui",       name = "ui-test-junit4" }
+compose-material3                 = { group = "androidx.compose.material3", name = "material3" }
+compose-material-icons-extended   = { group = "androidx.compose.material", name = "material-icons-extended" }
+
+# ── Navegación ───────────────────────────────────────────────
+navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+
+# ── Accompanist ──────────────────────────────────────────────
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
+
+# ── Hilt ─────────────────────────────────────────────────────
+hilt-android           = { group = "com.google.dagger", name = "hilt-android",          version.ref = "hilt" }
+hilt-compiler          = { group = "com.google.dagger", name = "hilt-android-compiler",  version.ref = "hilt" }
+hilt-navigation-compose = { group = "androidx.hilt",   name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+
+# ── Room ─────────────────────────────────────────────────────
+room-runtime  = { group = "androidx.room", name = "room-runtime",  version.ref = "room" }
+room-ktx      = { group = "androidx.room", name = "room-ktx",      version.ref = "room" }
+room-compiler = { group = "androidx.room", name = "room-compiler",  version.ref = "room" }
+
+# ── SQLCipher (AES-256) ───────────────────────────────────────
+sqlcipher = { group = "net.zetetic",   name = "android-database-sqlcipher", version.ref = "sqlcipher" }
+sqlite-ktx = { group = "androidx.sqlite", name = "sqlite-ktx",             version.ref = "sqliteKtx" }
+
+# ── Coroutines ────────────────────────────────────────────────
+kotlinx-coroutines-core    = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core",    version.ref = "coroutines" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test    = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test",    version.ref = "coroutines" }
+
+# ── DataStore ────────────────────────────────────────────────
+datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
+
+# ── TensorFlow Lite ──────────────────────────────────────────
+tensorflow-lite          = { group = "org.tensorflow", name = "tensorflow-lite",          version.ref = "tensorflowLite" }
+tensorflow-lite-support  = { group = "org.tensorflow", name = "tensorflow-lite-support",  version.ref = "tensorflowLiteSupport" }
+tensorflow-lite-metadata = { group = "org.tensorflow", name = "tensorflow-lite-metadata", version.ref = "tensorflowLiteSupport" }
+
+# ── MPAndroidChart (via JitPack) ──────────────────────────────
+mpandroidchart = { group = "com.github.PhilJay", name = "MPAndroidChart", version = "v3.1.0" }
+
+# ── Firebase (versiones gestionadas por el BOM) ───────────────
+firebase-bom          = { group = "com.google.firebase", name = "firebase-bom",          version.ref = "firebaseBom" }
+firebase-auth-ktx     = { group = "com.google.firebase", name = "firebase-auth-ktx" }
+firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
+
+# ── WorkManager ──────────────────────────────────────────────
+work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
+
+# ── Seguridad ────────────────────────────────────────────────
+security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+biometric       = { group = "androidx.biometric", name = "biometric",       version.ref = "biometric" }
+
+# ── Animaciones / UI ─────────────────────────────────────────
+lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }
+coil-compose   = { group = "io.coil-kt",         name = "coil-compose",   version.ref = "coil" }
+
+# ── Logging ──────────────────────────────────────────────────
+timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+
+# ── Testing ──────────────────────────────────────────────────
+junit                = { group = "junit",                  name = "junit",          version.ref = "junit" }
+androidx-junit       = { group = "androidx.test.ext",      name = "junit",          version.ref = "junitExt" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+mockk                = { group = "io.mockk",               name = "mockk",          version.ref = "mockk" }
+turbine              = { group = "app.cash.turbine",       name = "turbine",        version.ref = "turbine" }
+leakcanary           = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
+
 
 [plugins]
-android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-
+android-application = { id = "com.android.application",           version.ref = "agp" }
+kotlin-android      = { id = "org.jetbrains.kotlin.android",      version.ref = "kotlin" }
+ksp                 = { id = "com.google.devtools.ksp",            version.ref = "ksp" }
+hilt                = { id = "com.google.dagger.hilt.android",     version.ref = "hilt" }
+google-services     = { id = "com.google.gms.google-services",     version.ref = "googleServices" }
