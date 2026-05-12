@@ -35,7 +35,6 @@ android {
         debug {
             isDebuggable          = true
             isMinifyEnabled       = false
-            applicationIdSuffix   = ".debug"
             versionNameSuffix     = "-DEBUG"
 
             // Accesibles desde código: BuildConfig.ENABLE_LOGGING
