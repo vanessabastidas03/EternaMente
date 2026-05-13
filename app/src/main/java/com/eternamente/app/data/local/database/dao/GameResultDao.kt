@@ -87,6 +87,18 @@ interface GameResultDao {
     """)
     suspend fun getScoreTrend(userId: String, gameId: String, limit: Int): List<Float>
 
+    /**
+     * Cuenta todos los resultados de partidas jugadas hoy por el usuario,
+     * independientemente de en cuántas sesiones se hayan distribuido.
+     * Usado por el widget de progreso del Dashboard.
+     */
+    @Query("""
+        SELECT COUNT(*) FROM game_results gr
+        INNER JOIN cognitive_sessions cs ON gr.sessionId = cs.id
+        WHERE gr.userId = :userId AND cs.sessionDate >= :fromEpochMs
+    """)
+    suspend fun countGameResultsForUserToday(userId: String, fromEpochMs: Long): Int
+
     /** Proyección usada por [getAveragesByDomainSince]. */
     data class DomainAvgRow(val domain: String, val avgScore: Float)
 }

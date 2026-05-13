@@ -93,4 +93,13 @@ interface GameResultRepository {
         gameId: String,
         limit: Int = 20
     ): Result<List<Float>>
+
+    /**
+     * Cuenta el total de juegos completados hoy por el usuario,
+     * sumando todos los resultados de sesiones que iniciaron hoy.
+     *
+     * @param userId       UUID del usuario.
+     * @param fromEpochMs  Inicio del día en epoch-ms (medianoche local).
+     */
+    suspend fun countGameResultsForUserToday(userId: String, fromEpochMs: Long): Result<Int>
 }

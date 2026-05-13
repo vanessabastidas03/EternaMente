@@ -15,15 +15,19 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.eternamente.app.domain.model.AlertLevel
 import com.eternamente.app.domain.model.MlPrediction
 import com.eternamente.app.presentation.dashboard.components.CognitiveAlertCard
@@ -73,6 +77,16 @@ fun DashboardScreen(
     val state by viewModel.state.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Actualizar progreso cada vez que el usuario vuelve a esta pantalla desde un juego
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Recolectar eventos one-shot sin perder ninguno entre recomposiciones
     LaunchedEffect(Unit) {

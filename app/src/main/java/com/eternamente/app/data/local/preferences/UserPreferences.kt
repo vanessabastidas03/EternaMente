@@ -17,5 +17,11 @@ data class UserPreferences(
     val darkMode: Boolean            = false,
     val onboardingCompleted: Boolean = false,
     /** UUID del usuario actualmente autenticado; `null` = no hay sesión activa. */
-    val currentUserId: String?       = null
+    val currentUserId: String?       = null,
+    /**
+     * `true` cuando el usuario completó login o onboarding exitosamente.
+     * Permite al Splash ir directamente a Dashboard sin pedir PIN.
+     * Se pone a `false` en logout explícito.
+     */
+    val isLoggedIn: Boolean          = false
 )

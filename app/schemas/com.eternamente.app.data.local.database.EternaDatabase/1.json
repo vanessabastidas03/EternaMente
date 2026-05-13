@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "d4157d2f8a57b9f46228923ed8a3b09f",
+    "identityHash": "0a19bda62687aa12e55df498ff4d5b09",
     "entities": [
       {
         "tableName": "users",
@@ -215,7 +215,7 @@
       },
       {
         "tableName": "game_results",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `userId` TEXT NOT NULL, `gameId` TEXT NOT NULL, `domain` TEXT NOT NULL, `scoreRaw` REAL NOT NULL, `scoreNormalized` REAL NOT NULL, `reactionTimeMsAvg` REAL NOT NULL, `reactionTimeMsP50` REAL NOT NULL, `accuracyPct` REAL NOT NULL, `errorsCount` INTEGER NOT NULL, `difficultyLevel` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `cognitive_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`userId`) REFERENCES `users`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `userId` TEXT NOT NULL, `gameId` TEXT NOT NULL, `domain` TEXT NOT NULL, `scoreRaw` REAL NOT NULL, `scoreNormalized` REAL NOT NULL, `reactionTimeMsAvg` REAL NOT NULL, `reactionTimeMsP50` REAL NOT NULL, `accuracyPct` REAL NOT NULL, `errorsCount` INTEGER NOT NULL, `difficultyLevel` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `cognitive_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -332,17 +332,6 @@
             "onUpdate": "NO ACTION",
             "columns": [
               "sessionId"
-            ],
-            "referencedColumns": [
-              "id"
-            ]
-          },
-          {
-            "table": "users",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "userId"
             ],
             "referencedColumns": [
               "id"
@@ -639,7 +628,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd4157d2f8a57b9f46228923ed8a3b09f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0a19bda62687aa12e55df498ff4d5b09')"
     ]
   }
 }

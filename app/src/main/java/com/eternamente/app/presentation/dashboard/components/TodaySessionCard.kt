@@ -95,7 +95,7 @@ fun TodaySessionCard(
                 }
             }
 
-            // ── Estado 2: en progreso ─────────────────────────────────────────
+            // ── Estado 2: en progreso — muestra botón para continuar ──────────
             sessionInProgress -> {
                 Column {
                     Text(
@@ -103,23 +103,28 @@ fun TodaySessionCard(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onBackground
                     )
-                    Spacer(Modifier.height(12.dp))
-                    LinearProgressIndicator(
-                        progress         = { sessionProgress },
-                        modifier         = Modifier
-                            .fillMaxWidth()
-                            .height(10.dp)
-                            .semantics {
-                                contentDescription = "$gameResults de $totalGames juegos completados"
-                            },
-                        color            = MaterialTheme.colorScheme.primary,
-                        trackColor       = MaterialTheme.colorScheme.surfaceVariant
-                    )
                     Spacer(Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress     = { sessionProgress },
+                        modifier     = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .semantics { contentDescription = "$gameResults de $totalGames juegos completados" },
+                        color        = MaterialTheme.colorScheme.primary,
+                        trackColor   = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text  = "$gameResults de $totalGames juegos completados",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    // Botón para continuar — siempre visible
+                    com.eternamente.app.presentation.component.EternaFullWidthButton(
+                        text               = "Continuar sesión →",
+                        onClick            = onStartSession,
+                        contentDescription = "Ir al catálogo de juegos para continuar"
                     )
                 }
             }

@@ -83,3 +83,12 @@ suspend fun <T> safeCall(block: suspend () -> T): Result<T> = try {
 } catch (e: Exception) {
     Result.Error(e)
 }
+
+/**
+ * Unwraps the [Result.Success] payload or throws the wrapped exception.
+ * Shared by all use cases that need to chain operations.
+ */
+fun <T> Result<T>.getOrThrow(): T = when (this) {
+    is Result.Success -> data
+    is Result.Error   -> throw exception
+}

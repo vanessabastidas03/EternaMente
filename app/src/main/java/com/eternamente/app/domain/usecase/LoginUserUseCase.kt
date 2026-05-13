@@ -89,6 +89,8 @@ class LoginUserUseCase @Inject constructor(
             authRepository.updateFailedAttempts(user.id, 0, null).getOrThrow()
         }
         userPreferencesRepository.updateCurrentUserId(user.id)
+        // Marcar sesión como activa → Splash irá a Dashboard en el próximo inicio
+        userPreferencesRepository.updateIsLoggedIn(true)
 
         user
     }

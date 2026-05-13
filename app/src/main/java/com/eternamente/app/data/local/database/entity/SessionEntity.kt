@@ -1,30 +1,29 @@
 package com.eternamente.app.data.local.database.entity
 
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.eternamente.app.domain.model.CognitiveSession
 import com.eternamente.app.domain.model.SessionType
 
+/**
+ * Sesión cognitiva en Room.
+ *
+ * **Sin FK en userId** (igual que game_results) para evitar
+ * `SQLiteConstraintException` cuando la tabla `users` está vacía
+ * (ej. después de `fallbackToDestructiveMigration` durante desarrollo).
+ * La integridad se mantiene por convención en la capa de repositorio.
+ */
 @Entity(
-    tableName    = "cognitive_sessions",
-    foreignKeys  = [
-        ForeignKey(
-            entity        = UserEntity::class,
-            parentColumns = ["id"],
-            childColumns  = ["userId"],
-            onDelete      = ForeignKey.CASCADE
-        )
-    ],
-    indices      = [Index("userId"), Index("sessionDate")]
+    tableName = "cognitive_sessions",
+    indices   = [Index("userId"), Index("sessionDate")]
 )
 data class SessionEntity(
     @PrimaryKey(autoGenerate = false) val id: String,
     val userId: String,
     val sessionDate: Long,
     val durationSeconds: Int?,
-    val type: String,       // SessionType.name — convertido por Converters
+    val type: String,
     val completed: Boolean
 )
 

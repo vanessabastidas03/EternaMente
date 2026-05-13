@@ -43,6 +43,7 @@ class UserPreferencesRepository @Inject constructor(
         val KEY_DARK_MODE             = booleanPreferencesKey("dark_mode")
         val KEY_ONBOARDING_COMPLETED  = booleanPreferencesKey("onboarding_completed")
         val KEY_CURRENT_USER_ID       = stringPreferencesKey("current_user_id")
+        val KEY_IS_LOGGED_IN          = booleanPreferencesKey("is_logged_in")
     }
 
     /** Flujo de preferencias actuales; emite al iniciarse y en cada cambio. */
@@ -58,7 +59,8 @@ class UserPreferencesRepository @Inject constructor(
                 hapticFeedback      = prefs[KEY_HAPTIC_FEEDBACK]      ?: true,
                 darkMode            = prefs[KEY_DARK_MODE]            ?: false,
                 onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
-                currentUserId       = prefs[KEY_CURRENT_USER_ID]
+                currentUserId       = prefs[KEY_CURRENT_USER_ID],
+                isLoggedIn          = prefs[KEY_IS_LOGGED_IN]          ?: false
             )
         }
 
@@ -74,6 +76,9 @@ class UserPreferencesRepository @Inject constructor(
             prefs[KEY_HAPTIC_FEEDBACK]      = preferences.hapticFeedback
             prefs[KEY_DARK_MODE]            = preferences.darkMode
             prefs[KEY_ONBOARDING_COMPLETED] = preferences.onboardingCompleted
+            prefs[KEY_IS_LOGGED_IN]         = preferences.isLoggedIn
+            if (preferences.currentUserId != null)
+                prefs[KEY_CURRENT_USER_ID] = preferences.currentUserId
         }
     }
 
@@ -146,4 +151,11 @@ class UserPreferencesRepository @Inject constructor(
             .catch { emit(emptyPreferences()) }
             .map { it[KEY_CURRENT_USER_ID] }
             .first()
+
+    /** Marca al usuario como autenticado (para skip del Login en el Splash). */
+    suspend fun updateIsLoggedIn(loggedIn: Boolean) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[KEY_IS_LOGGED_IN] = loggedIn
+        }
+    }
 }
