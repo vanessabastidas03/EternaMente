@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -87,9 +86,11 @@ class DashboardViewModel @Inject constructor(
                 val predictionResult  = predictionDeferred.await()
 
                 // ── Sesión de hoy ─────────────────────────────────────────────
-                val todaySession   = getTodaySession(userId)
+                val zone     = ZoneId.systemDefault()
+                val dayStart = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+                val todaySession   = getTodaySession(userId, dayStart)
                 val weekProgress   = calculateWeekProgress(userId)
-                val todayResults   = countTodayGameResults(todaySession)
+                val todayResults   = countTodayGameResults(userId, dayStart)
                 val totalExpected  = expectedGamesFor(todaySession)
 
                 // ── Alerta activa ─────────────────────────────────────────────
@@ -132,14 +133,11 @@ class DashboardViewModel @Inject constructor(
     // ── Helpers privados ──────────────────────────────────────────────────────
 
     /**
-     * Devuelve la sesión de hoy si existe (iniciada desde medianoche del dispositivo).
-     * Usa la zona horaria del sistema para que coincida con la hora local del usuario.
+     * Devuelve la sesión más reciente de hoy si existe.
+     * Recibe [dayStart] ya calculado en [loadDashboard] para evitar recalcularlo.
      */
-    private suspend fun getTodaySession(userId: String): CognitiveSession? {
-        val zone     = ZoneId.systemDefault()
-        val dayStart = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
-        val dayEnd   = dayStart + DAY_MS - 1
-
+    private suspend fun getTodaySession(userId: String, dayStart: Long): CognitiveSession? {
+        val dayEnd = dayStart + DAY_MS - 1
         val latest = sessionRepository.getLatestSession(userId).getOrNull()
         return latest?.takeIf { it.sessionDate in dayStart..dayEnd }
     }
@@ -162,15 +160,13 @@ class DashboardViewModel @Inject constructor(
     }
 
     /**
-     * Cuenta cuántos juegos se han registrado en [todaySession].
-     * Usa `.first()` para obtener la emisión actual del Flow sin subscribirse permanentemente.
+     * Cuenta todos los juegos completados hoy por el usuario, sumando resultados
+     * de todas las sesiones que iniciaron hoy (no solo la más reciente).
      */
-    private suspend fun countTodayGameResults(todaySession: CognitiveSession?): Int {
-        if (todaySession == null) return 0
-        return runCatching {
-            gameResultRepository.observeResultsForSession(todaySession.id).first().size
+    private suspend fun countTodayGameResults(userId: String, dayStart: Long): Int =
+        runCatching {
+            gameResultRepository.countGameResultsForUserToday(userId, dayStart).getOrNull() ?: 0
         }.getOrDefault(0)
-    }
 
     /** Devuelve el número de juegos esperados según el tipo de sesión. */
     private fun expectedGamesFor(session: CognitiveSession?): Int = when (session?.type) {

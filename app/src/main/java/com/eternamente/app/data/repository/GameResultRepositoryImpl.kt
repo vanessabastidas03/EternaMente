@@ -3,6 +3,7 @@ package com.eternamente.app.data.repository
 import com.eternamente.app.core.Result
 import com.eternamente.app.core.safeCall
 import com.eternamente.app.data.local.database.dao.GameResultDao
+import com.eternamente.app.data.local.database.dao.SessionDao
 import com.eternamente.app.data.local.database.entity.toDomain
 import com.eternamente.app.data.local.database.entity.toEntity
 import com.eternamente.app.domain.model.CognitiveDomain
@@ -18,15 +19,16 @@ import javax.inject.Singleton
 
 @Singleton
 class GameResultRepositoryImpl @Inject constructor(
-    private val gameResultDao: GameResultDao
+    private val gameResultDao: GameResultDao,
+    private val sessionDao: SessionDao    // Para resolver userId a partir de sessionId
 ) : GameResultRepository {
 
     override suspend fun saveGameResult(result: GameResult): Result<GameResult> =
         withContext(Dispatchers.IO) {
             safeCall {
-                // userId debe estar disponible en el contexto — asumido como campo del GameResult
-                // En la capa de presentación se pasa userId al use case que lo inyecta aquí
-                gameResultDao.insert(result.toEntity(result.sessionId)) // sessionId como proxy temporal
+                // Obtener userId real desde la sesión — evita pasar userId por toda la cadena
+                val userId = sessionDao.getById(result.sessionId)?.userId ?: ""
+                gameResultDao.insert(result.toEntity(userId))
                 result
             }
         }
@@ -34,7 +36,14 @@ class GameResultRepositoryImpl @Inject constructor(
     override suspend fun saveGameResults(results: List<GameResult>): Result<List<GameResult>> =
         withContext(Dispatchers.IO) {
             safeCall {
-                gameResultDao.insertAll(results.map { it.toEntity(it.sessionId) })
+                // Cachear userId para no hacer N queries al mismo sessionId
+                val sessionUserCache = mutableMapOf<String, String>()
+                gameResultDao.insertAll(results.map { r ->
+                    val userId = sessionUserCache.getOrPut(r.sessionId) {
+                        sessionDao.getById(r.sessionId)?.userId ?: ""
+                    }
+                    r.toEntity(userId)
+                })
                 results
             }
         }
@@ -76,6 +85,13 @@ class GameResultRepositoryImpl @Inject constructor(
         limit: Int
     ): Result<List<Float>> = withContext(Dispatchers.IO) {
         safeCall { gameResultDao.getScoreTrend(userId, gameId, limit) }
+    }
+
+    override suspend fun countGameResultsForUserToday(
+        userId: String,
+        fromEpochMs: Long
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        safeCall { gameResultDao.countGameResultsForUserToday(userId, fromEpochMs) }
     }
 
     /** Versión extendida: promedio por dominio desde hace N semanas (para gráficos). */

@@ -1,40 +1,39 @@
 package com.eternamente.app.domain.usecase
 
 import com.eternamente.app.core.Result
+import com.eternamente.app.core.getOrThrow
+import com.eternamente.app.core.safeCall
 import com.eternamente.app.domain.model.CognitiveSession
 import com.eternamente.app.domain.model.SessionType
 import com.eternamente.app.domain.repository.SessionRepository
+import java.util.UUID
+import javax.inject.Inject
 
 /**
- * Creates and persists a new [CognitiveSession] after validating business rules.
+ * Creates and persists a new [CognitiveSession] in Room.
  *
- * Domain rules enforced before creating the session:
- * - A [SessionType.BASELINE] session can only be started once per user.
- * - A [SessionType.DAILY] or [SessionType.WEEKLY_FULL] session requires a
- *   completed BASELINE to already exist.
- * - At most one incomplete session may exist at a time (concurrency guard).
- *
- * @property sessionRepository Handles session persistence and prerequisite queries.
+ * Para el MVP no aplica la regla de baseline obligatorio para que los juegos
+ * puedan iniciarse desde el catálogo sin restricciones.
  */
-class StartSessionUseCase(
+class StartSessionUseCase @Inject constructor(
     private val sessionRepository: SessionRepository
 ) {
-
-    /**
-     * Validates preconditions and creates a new [CognitiveSession].
-     *
-     * @param userId UUID of the user starting the session.
-     * @param type The [SessionType] for the new session.
-     * @param startTimestamp Epoch-millisecond timestamp of session initiation.
-     *   Callers should pass the wall-clock time at the moment the user taps "Start".
-     * @return [Result.Success] with the newly created [CognitiveSession], or
-     *   [Result.Error] if a business rule is violated or the insert fails.
-     */
     suspend operator fun invoke(
         userId: String,
-        type: SessionType,
-        startTimestamp: Long
-    ): Result<CognitiveSession> {
-        TODO("Not yet implemented")
+        type: SessionType = SessionType.DAILY,
+        startTimestamp: Long = System.currentTimeMillis()
+    ): Result<CognitiveSession> = safeCall {
+        require(userId.isNotBlank()) { "userId no puede estar vacío" }
+
+        val session = CognitiveSession(
+            id              = UUID.randomUUID().toString(),
+            userId          = userId,
+            sessionDate     = startTimestamp,
+            durationSeconds = null,
+            type            = type,
+            completed       = false
+        )
+        sessionRepository.saveSession(session).getOrThrow()
+        session
     }
 }

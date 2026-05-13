@@ -63,7 +63,7 @@ import net.sqlcipher.database.SupportFactory
         GamificationEntity::class,
         SettingsEntity::class
     ],
-    version      = 1,
+    version      = 3,   // bump: eliminada FK userId en cognitive_sessions (desarrollo)
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -98,7 +98,9 @@ abstract class EternaDatabase : RoomDatabase() {
         fun create(context: Context, encryptionKey: ByteArray): EternaDatabase =
             Room.databaseBuilder(context, EternaDatabase::class.java, DATABASE_NAME)
                 .openHelperFactory(SupportFactory(encryptionKey))
-                .fallbackToDestructiveMigrationOnDowngrade()
+                // Durante desarrollo: recrear DB si el schema no coincide con la versión.
+                // En producción reemplazar por addMigrations(MIGRATION_X_Y).
+                .fallbackToDestructiveMigration()
                 .build()
 
         /**

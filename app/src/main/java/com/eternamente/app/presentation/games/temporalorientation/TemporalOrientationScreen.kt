@@ -26,6 +26,11 @@ import com.eternamente.app.presentation.games.engine.*
 import com.eternamente.app.ui.theme.EternaMenteTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
 class TemporalOrientationViewModel @Inject constructor(
@@ -34,9 +39,15 @@ class TemporalOrientationViewModel @Inject constructor(
 ) : GameBaseViewModel<TemporalConfig, TemporalResult>(save, update, session, prefs) {
     private var _engine: TemporalOrientationEngine? = null
     override val engine: GameEngine<TemporalConfig, TemporalResult> get() = requireNotNull(_engine)
-    val uiState get() = _engine?.uiState ?: kotlinx.coroutines.flow.MutableStateFlow(TemporalUiState())
+    private val _uiState = kotlinx.coroutines.flow.MutableStateFlow(TemporalUiState())
+    val uiState: kotlinx.coroutines.flow.StateFlow<TemporalUiState> = _uiState.asStateFlow()
 
-    fun initialize(c: TemporalConfig) { if (_engine != null) return; _engine = TemporalOrientationEngine(c) }
+    fun initialize(c: TemporalConfig) {
+        if (_engine != null) return
+        val e = TemporalOrientationEngine(c)
+        _engine = e
+        viewModelScope.launch { e.uiState.collect { _uiState.value = it } }
+    }
     fun begin() = _engine?.begin()
     fun selectAnswer(ans: String): InputFeedback = onUserInput(UserInput.TapTarget(ans))
 

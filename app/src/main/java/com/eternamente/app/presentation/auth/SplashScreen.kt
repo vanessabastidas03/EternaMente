@@ -51,7 +51,8 @@ fun SplashScreen(
             SplashViewModel.Destination.Register   -> onNavigateToRegister()
             SplashViewModel.Destination.Login      -> onNavigateToLogin()
             SplashViewModel.Destination.Onboarding -> onNavigateToOnboarding()
-            SplashViewModel.Destination.Idle       -> Unit // Esperando
+            SplashViewModel.Destination.Dashboard  -> onNavigateToDashboard()  // ← NUEVO
+            SplashViewModel.Destination.Idle       -> Unit
         }
     }
 

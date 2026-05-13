@@ -31,6 +31,11 @@ import com.eternamente.app.presentation.games.engine.*
 import com.eternamente.app.ui.theme.EternaMenteTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
 class VerbalFluencyViewModel @Inject constructor(
@@ -39,9 +44,15 @@ class VerbalFluencyViewModel @Inject constructor(
 ) : GameBaseViewModel<VerbalFluencyConfig, VerbalFluencyResult>(save, update, session, prefs) {
     private var _engine: VerbalFluencyEngine? = null
     override val engine: GameEngine<VerbalFluencyConfig, VerbalFluencyResult> get() = requireNotNull(_engine)
-    val uiState get() = _engine?.uiState ?: kotlinx.coroutines.flow.MutableStateFlow(VerbalFluencyUiState())
+    private val _uiState = kotlinx.coroutines.flow.MutableStateFlow(VerbalFluencyUiState())
+    val uiState: kotlinx.coroutines.flow.StateFlow<VerbalFluencyUiState> = _uiState.asStateFlow()
 
-    fun initialize(c: VerbalFluencyConfig) { if (_engine != null) return; _engine = VerbalFluencyEngine(c) }
+    fun initialize(c: VerbalFluencyConfig) {
+        if (_engine != null) return
+        val e = VerbalFluencyEngine(c)
+        _engine = e
+        viewModelScope.launch { e.uiState.collect { _uiState.value = it } }
+    }
     fun startCountdown() = _engine?.startCountdown()
     fun submitWord(word: String): InputFeedback = onUserInput(UserInput.TapTarget(word))
 

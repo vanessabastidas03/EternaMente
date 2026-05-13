@@ -34,6 +34,11 @@ import com.eternamente.app.presentation.games.engine.*
 import com.eternamente.app.ui.theme.EternaMenteTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
 class FlashColorViewModel @Inject constructor(
@@ -44,12 +49,14 @@ class FlashColorViewModel @Inject constructor(
 ) : GameBaseViewModel<FlashColorConfig, FlashColorResult>(saveGameResultUseCase, updateGamificationUseCase, sessionRepository, userPreferencesRepository) {
     private var _engine: FlashColorEngine? = null
     override val engine: GameEngine<FlashColorConfig, FlashColorResult> get() = requireNotNull(_engine)
-    private val _ui = androidx.lifecycle.MutableLiveData(FlashColorUiState())
-    val uiState get() = _engine?.uiState ?: kotlinx.coroutines.flow.MutableStateFlow(FlashColorUiState()).asStateFlow()
+    private val _uiState = kotlinx.coroutines.flow.MutableStateFlow(FlashColorUiState())
+    val uiState: kotlinx.coroutines.flow.StateFlow<FlashColorUiState> = _uiState.asStateFlow()
 
     fun initialize(config: FlashColorConfig) {
         if (_engine != null) return
-        _engine = FlashColorEngine(config)
+        val e = FlashColorEngine(config)
+        _engine = e
+        viewModelScope.launch { e.uiState.collect { _uiState.value = it } }
     }
     fun startCountdown() = _engine?.startCountdown()
     fun tap(): InputFeedback = onUserInput(UserInput.Tap)
@@ -62,7 +69,6 @@ class FlashColorViewModel @Inject constructor(
         accuracyPct = engineResult.metrics.accuracyPct, errorsCount = engineResult.metrics.errorCount,
         difficultyLevel = engineResult.difficultyReached
     )
-    private fun <T> kotlinx.coroutines.flow.MutableStateFlow<T>.asStateFlow() = this as kotlinx.coroutines.flow.StateFlow<T>
 }
 
 @Composable

@@ -36,6 +36,11 @@ import com.eternamente.app.presentation.games.engine.*
 import com.eternamente.app.ui.theme.EternaMenteTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
 class TrailMakingViewModel @Inject constructor(
@@ -44,11 +49,14 @@ class TrailMakingViewModel @Inject constructor(
 ) : GameBaseViewModel<TrailMakingConfig, TrailMakingResult>(save, update, session, prefs) {
     private var _engine: TrailMakingEngine? = null
     override val engine: GameEngine<TrailMakingConfig, TrailMakingResult> get() = requireNotNull(_engine)
-    val uiState get() = _engine?.uiState ?: kotlinx.coroutines.flow.MutableStateFlow(TrailMakingUiState())
+    private val _uiState = kotlinx.coroutines.flow.MutableStateFlow(TrailMakingUiState())
+    val uiState: kotlinx.coroutines.flow.StateFlow<TrailMakingUiState> = _uiState.asStateFlow()
 
     fun initialize(config: TrailMakingConfig) {
         if (_engine != null) return
-        _engine = TrailMakingEngine(config)
+        val e = TrailMakingEngine(config)
+        _engine = e
+        viewModelScope.launch { e.uiState.collect { _uiState.value = it } }
     }
     fun startCountdown() = _engine?.startCountdown()
     fun checkProximity(norm: Offset) = _engine?.checkProximityAndConnect(norm) ?: false

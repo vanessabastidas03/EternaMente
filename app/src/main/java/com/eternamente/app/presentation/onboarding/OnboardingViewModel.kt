@@ -181,7 +181,9 @@ class OnboardingViewModel @Inject constructor(
                         hapticFeedback      = accessForm.hapticFeedback,
                         darkMode            = accessForm.darkMode,
                         onboardingCompleted = true,
-                        currentUserId       = userId
+                        currentUserId       = userId,
+                        // Marcar sesión activa → el próximo inicio va directo a Dashboard
+                        isLoggedIn          = true
                     )
                 )
             }.onSuccess {

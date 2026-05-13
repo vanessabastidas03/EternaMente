@@ -230,8 +230,10 @@ fun NavGraph(
 
             composable(Screen.GameCatalog.route) {
                 GameCatalogScreen(
-                    innerPadding             = innerPadding,
-                    onNavigateToInstructions = { gameId ->
+                    innerPadding    = innerPadding,
+                    onNavigateToGame = { gameId ->
+                        // Navegar directamente a GamePlay para juegos implementados;
+                        // o a Instructions para el flujo estándar
                         navController.navigate(Screen.GameInstructions(gameId).navRoute())
                     }
                 )
@@ -249,7 +251,8 @@ fun NavGraph(
                 GameInstructionsScreen(
                     innerPadding    = innerPadding,
                     gameId          = gameId,
-                    onStartGame     = { sessionId ->
+                    // onStartGame recibe (sessionId, userId) — el ViewModel crea la sesión en Room
+                    onStartGame     = { sessionId, _ ->
                         navController.navigate(Screen.GamePlay(gameId, sessionId).navRoute())
                     },
                     onNavigateBack  = { navController.popBackStack() }

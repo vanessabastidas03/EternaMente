@@ -32,6 +32,11 @@ import com.eternamente.app.presentation.games.engine.*
 import com.eternamente.app.ui.theme.EternaMenteTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
 class StroopViewModel @Inject constructor(
@@ -40,9 +45,15 @@ class StroopViewModel @Inject constructor(
 ) : GameBaseViewModel<StroopConfig, StroopResult>(save, update, session, prefs) {
     private var _engine: StroopEngine? = null
     override val engine: GameEngine<StroopConfig, StroopResult> get() = requireNotNull(_engine)
-    val uiState get() = _engine?.uiState ?: kotlinx.coroutines.flow.MutableStateFlow(StroopUiState())
+    private val _uiState = kotlinx.coroutines.flow.MutableStateFlow(StroopUiState())
+    val uiState: kotlinx.coroutines.flow.StateFlow<StroopUiState> = _uiState.asStateFlow()
 
-    fun initialize(c: StroopConfig) { if (_engine != null) return; _engine = StroopEngine(c) }
+    fun initialize(c: StroopConfig) {
+        if (_engine != null) return
+        val e = StroopEngine(c)
+        _engine = e
+        viewModelScope.launch { e.uiState.collect { _uiState.value = it } }
+    }
     fun startCountdown() = _engine?.startCountdown()
     fun selectColor(idx: Int): InputFeedback = onUserInput(UserInput.SelectOption(idx))
 

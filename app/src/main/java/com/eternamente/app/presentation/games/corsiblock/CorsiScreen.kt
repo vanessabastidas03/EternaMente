@@ -28,6 +28,11 @@ import com.eternamente.app.presentation.games.engine.*
 import com.eternamente.app.ui.theme.EternaMenteTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
 class CorsiViewModel @Inject constructor(
@@ -36,9 +41,15 @@ class CorsiViewModel @Inject constructor(
 ) : GameBaseViewModel<CorsiConfig, CorsiResult>(save, update, session, prefs) {
     private var _engine: CorsiEngine? = null
     override val engine: GameEngine<CorsiConfig, CorsiResult> get() = requireNotNull(_engine)
-    val uiState get() = _engine?.uiState ?: kotlinx.coroutines.flow.MutableStateFlow(CorsiUiState())
+    private val _uiState = kotlinx.coroutines.flow.MutableStateFlow(CorsiUiState())
+    val uiState: kotlinx.coroutines.flow.StateFlow<CorsiUiState> = _uiState.asStateFlow()
 
-    fun initialize(c: CorsiConfig) { if (_engine != null) return; _engine = CorsiEngine(c) }
+    fun initialize(c: CorsiConfig) {
+        if (_engine != null) return
+        val e = CorsiEngine(c)
+        _engine = e
+        viewModelScope.launch { e.uiState.collect { _uiState.value = it } }
+    }
     fun startCountdown() = _engine?.startCountdown()
     fun tapBlock(idx: Int): InputFeedback = onUserInput(UserInput.SelectOption(idx))
 

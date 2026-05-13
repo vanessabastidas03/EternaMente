@@ -9,9 +9,11 @@ import com.eternamente.app.domain.usecase.SaveGameResultUseCase
 import com.eternamente.app.domain.usecase.UpdateGamificationUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -74,11 +76,18 @@ abstract class GameBaseViewModel<C : GameConfig, R : GameResult>(
     // ── Estado observable ─────────────────────────────────────────────────────
 
     /**
-     * Refleja [GameEngine.state] para que la UI observe el estado del juego
-     * a través del ViewModel sin acceder al engine directamente.
+     * Estado del juego observable desde la UI.
+     *
+     * Es un [MutableStateFlow] ESTABLE inicializado con [GameState.Idle].
+     * Una vez que [startGame] llama [startEngineStateCollection], empieza
+     * a reflejar el estado del engine.
+     *
+     * **NO** usa `get() = engine.state` directamente porque el engine puede
+     * no estar inicializado cuando el composable lo colecta por primera vez
+     * (antes de que corra el `LaunchedEffect` que llama `initialize()`).
      */
-    val gameState: StateFlow<GameState>
-        get() = engine.state
+    private val _gameState = MutableStateFlow<GameState>(GameState.Idle)
+    val gameState: StateFlow<GameState> = _gameState.asStateFlow()
 
     // ── Eventos de un solo disparo (navegación) ───────────────────────────────
 
@@ -98,7 +107,15 @@ abstract class GameBaseViewModel<C : GameConfig, R : GameResult>(
      */
     fun startGame() {
         engine.start()
+        startEngineStateCollection()
         observeGameCompletion()
+    }
+
+    /** Empieza a reflejar `engine.state` en `_gameState`. Llamado en `startGame()`. */
+    private fun startEngineStateCollection() {
+        viewModelScope.launch {
+            engine.state.collect { _gameState.value = it }
+        }
     }
 
     /** Pausa el juego activo. No-op si no está en [GameState.Playing]. */
@@ -134,16 +151,17 @@ abstract class GameBaseViewModel<C : GameConfig, R : GameResult>(
         withContext(Dispatchers.IO) {
             val domainResult = buildDomainResult(engineResult)
 
-            // 1 — Guardar resultado en Room
-            saveGameResultUseCase(domainResult)
+            // 1 — Guardar resultado en Room (errores no bloquean la navegación)
+            runCatching { saveGameResultUseCase(domainResult) }
+                .onFailure { e -> android.util.Log.e("GameBase", "Error guardando resultado: ${e.message}") }
 
-            // 2 — Actualizar gamificación (puntos, racha, medallas)
-            val session = loadSession(engineResult.sessionId)
-            if (session != null) {
-                updateGamificationUseCase(session, listOf(domainResult))
-            }
+            // 2 — Actualizar gamificación
+            runCatching {
+                val session = loadSession(engineResult.sessionId)
+                if (session != null) updateGamificationUseCase(session, listOf(domainResult))
+            }.onFailure { e -> android.util.Log.e("GameBase", "Error actualizando gamificación: ${e.message}") }
 
-            // 3 — Emitir evento de navegación a la pantalla de resultado
+            // 3 — Navegar siempre, aunque haya fallado el guardado
             _navigationEvent.emit(
                 GameNavigationEvent.NavigateToResult(
                     gameId = domainResult.gameId,

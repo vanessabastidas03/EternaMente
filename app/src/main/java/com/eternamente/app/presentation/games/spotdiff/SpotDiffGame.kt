@@ -44,7 +44,7 @@ val DIFF_PAIRS = listOf(
         listOf("🌳","🌲","🏡","🌳","🌳"),listOf("🐔","🐔","🐄","🐑","🐔"),
         listOf("🌾","🌿","🌾","🌾","🌾"),listOf("🌻","🌻","🌷","🌻","🌻"),
         listOf("🐕","🐕","🚜","🐕","🐈")
-    ), setOf(1 to 0 to 1, 0 to 1 to 3, 2 to 1 to 1).map { it.first.first to it.first.second }.toSet()),
+    ), setOf(0 to 1, 1 to 3, 2 to 1, 3 to 2, 4 to 4)),
     DiffPair("Ciudad", listOf(
         listOf("🏢","🏢","🏦","🏢","🏢"),listOf("🚗","🚕","🚌","🚗","🚕"),
         listOf("🌳","🌳","⛲","🌳","🌳"),listOf("👩","👨","👧","👦","👩"),
