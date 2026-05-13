@@ -24,6 +24,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // On-device ML model version — bumped when eternamente_ml_v1.tflite is updated
+        buildConfigField("String", "ML_MODEL_VERSION", "\"v1.0\"")
+
         // ABIs para librerías nativas de SQLCipher y TFLite
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
