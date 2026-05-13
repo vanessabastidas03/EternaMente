@@ -156,36 +156,32 @@ class OnboardingViewModel @Inject constructor(
                 val accessForm = _state.value.accessibilityForm
                 val now        = System.currentTimeMillis()
 
-                // UUID del usuario: usa Firebase UID si hay sesión activa,
-                // o genera uno local para el caso de onboarding sin auth previa.
-                val userId = firebaseAuth.currentUser?.uid ?: UUID.randomUUID().toString()
+                // El usuario fue creado en RegisterScreen — recuperar su ID
+                val userId = userPreferencesRepository.getCurrentUserId()
+                    ?: throw IllegalStateException("No hay usuario registrado activo")
 
-                // 1 — Crear usuario en Room
-                val user = User(
-                    id             = userId,
-                    name           = form.name.trim(),
+                // 1 — Actualizar perfil demográfico del usuario existente
+                val existingUser = userRepository.getUserById(userId).getOrThrow()
+                val updatedUser  = existingUser.copy(
                     age            = form.age,
                     educationYears = form.educationLevel.years,
                     gender         = form.gender.displayName,
-                    createdAt      = now,
                     consentGivenAt = now
                 )
-                userRepository.registerUser(user).getOrThrow()
+                userRepository.updateUser(updatedUser).getOrThrow()
 
                 // 2 — Registrar timestamp de consentimiento (campo consent_given_at)
                 userRepository.recordConsent(userId, now).getOrThrow()
 
-                // 3 — Inicializar perfil de gamificación
-                gamificationRepository.initializeProfile(userId).getOrThrow()
-
-                // 4 — Persistir preferencias de accesibilidad en DataStore
+                // 3 — Persistir preferencias de accesibilidad + marcar onboarding completo
                 userPreferencesRepository.savePreferences(
                     UserPreferences(
                         fontScale           = accessForm.fontScale.scale,
                         highContrast        = accessForm.highContrast,
                         hapticFeedback      = accessForm.hapticFeedback,
                         darkMode            = accessForm.darkMode,
-                        onboardingCompleted = true
+                        onboardingCompleted = true,
+                        currentUserId       = userId
                     )
                 )
             }.onSuccess {

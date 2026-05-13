@@ -1,5 +1,8 @@
 package com.eternamente.app.di
 
+import com.eternamente.app.data.local.crypto.CryptoManager
+import com.eternamente.app.data.local.preferences.UserPreferencesRepository
+import com.eternamente.app.domain.repository.AuthRepository
 import com.eternamente.app.domain.repository.GameResultRepository
 import com.eternamente.app.domain.repository.GamificationRepository
 import com.eternamente.app.domain.repository.MlRepository
@@ -44,17 +47,24 @@ object UseCaseModule {
     @Provides
     fun provideRegisterUserUseCase(
         userRepository: UserRepository,
-        gamificationRepository: GamificationRepository
-    ): RegisterUserUseCase = RegisterUserUseCase(userRepository, gamificationRepository)
+        authRepository: AuthRepository,
+        gamificationRepository: GamificationRepository,
+        cryptoManager: CryptoManager,
+        userPreferencesRepository: UserPreferencesRepository
+    ): RegisterUserUseCase = RegisterUserUseCase(
+        userRepository, authRepository, gamificationRepository,
+        cryptoManager, userPreferencesRepository
+    )
 
-    /**
-     * Provides [LoginUserUseCase] — authenticates via Firebase Auth and loads
-     * the local user profile.
-     */
     @Provides
     fun provideLoginUserUseCase(
-        userRepository: UserRepository
-    ): LoginUserUseCase = LoginUserUseCase(userRepository)
+        userRepository: UserRepository,
+        authRepository: AuthRepository,
+        cryptoManager: CryptoManager,
+        userPreferencesRepository: UserPreferencesRepository
+    ): LoginUserUseCase = LoginUserUseCase(
+        userRepository, authRepository, cryptoManager, userPreferencesRepository
+    )
 
     /**
      * Provides [StartSessionUseCase] — validates business rules and creates a

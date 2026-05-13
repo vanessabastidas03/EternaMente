@@ -11,9 +11,11 @@ package com.eternamente.app.data.local.preferences
  * @property onboardingCompleted `true` una vez que el usuario completa el flujo inicial.
  */
 data class UserPreferences(
-    val fontScale: Float            = 1.0f,
-    val highContrast: Boolean       = false,
-    val hapticFeedback: Boolean     = true,
-    val darkMode: Boolean           = false,
-    val onboardingCompleted: Boolean = false
+    val fontScale: Float             = 1.0f,
+    val highContrast: Boolean        = false,
+    val hapticFeedback: Boolean      = true,
+    val darkMode: Boolean            = false,
+    val onboardingCompleted: Boolean = false,
+    /** UUID del usuario actualmente autenticado; `null` = no hay sesión activa. */
+    val currentUserId: String?       = null
 )

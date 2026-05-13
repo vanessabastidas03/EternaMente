@@ -1,45 +1,104 @@
 package com.eternamente.app.presentation.auth
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import com.eternamente.app.presentation.common.PlaceholderScreen
-import kotlinx.coroutines.delay
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 
 /**
- * Pantalla de bienvenida animada que se muestra al iniciar la app.
+ * Pantalla de splash que determina el destino inicial leyendo DataStore.
  *
- * Permanece visible durante [SPLASH_DELAY_MS] milisegundos y luego decide
- * el destino de navegación según el estado de autenticación:
- * - Usuario autenticado → [onNavigateToDashboard]
- * - Sin sesión activa → [onNavigateToOnboarding]
- *
- * En una implementación real esta lógica provendría de un ViewModel
- * que observe el estado de [FirebaseAuth] a través de [UserRepository].
- *
- * @param innerPadding            Padding del [Scaffold] padre.
- * @param onNavigateToOnboarding  Navegar al primer paso del carrusel de onboarding.
- * @param onNavigateToDashboard   Navegar directamente al panel principal (sesión activa).
+ * Destinos:
+ * - Sin cuenta → [onNavigateToRegister]
+ * - Con cuenta, onboarding incompleto → [onNavigateToOnboarding]
+ * - Con cuenta, onboarding completo → [onNavigateToDashboard]
  */
 @Composable
 fun SplashScreen(
     innerPadding: PaddingValues,
+    onNavigateToRegister: () -> Unit,
     onNavigateToOnboarding: () -> Unit,
-    onNavigateToDashboard: () -> Unit
+    onNavigateToDashboard: () -> Unit,
+    onNavigateToLogin: () -> Unit = {}
 ) {
-    // En producción: observar FirebaseAuth.currentUser desde un ViewModel
-    LaunchedEffect(Unit) {
-        delay(SPLASH_DELAY_MS)
-        onNavigateToOnboarding()
+    val viewModel: SplashViewModel = hiltViewModel()
+    val destination by viewModel.destination.collectAsState()
+
+    LaunchedEffect(destination) {
+        when (destination) {
+            SplashViewModel.Destination.Register   -> onNavigateToRegister()
+            SplashViewModel.Destination.Login      -> onNavigateToLogin()
+            SplashViewModel.Destination.Onboarding -> onNavigateToOnboarding()
+            SplashViewModel.Destination.Idle       -> Unit // Esperando
+        }
     }
 
-    PlaceholderScreen(
-        screenName         = "EternaMente",
-        accessibilityLabel = "Pantalla de bienvenida de EternaMente, cargando…",
-        innerPadding       = innerPadding,
-        primaryActionLabel = "Comenzar",
-        onPrimaryAction    = onNavigateToOnboarding
-    )
-}
+    Surface(
+        modifier = Modifier.fillMaxSize().padding(innerPadding),
+        color    = MaterialTheme.colorScheme.primary
+    ) {
+        Box(
+            modifier         = Modifier
+                .fillMaxSize()
+                .semantics { contentDescription = "Pantalla de carga de EternaMente" },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector        = Icons.Filled.Psychology,
+                    contentDescription = "Logo EternaMente",
+                    modifier           = Modifier.size(96.dp),
+                    tint               = MaterialTheme.colorScheme.onPrimary
+                )
 
-private const val SPLASH_DELAY_MS = 2_000L
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    text      = "EternaMente",
+                    style     = MaterialTheme.typography.headlineLarge,
+                    color     = MaterialTheme.colorScheme.onPrimary,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text      = "Cuida tu mente jugando",
+                    style     = MaterialTheme.typography.bodyLarge,
+                    color     = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(48.dp))
+
+                CircularProgressIndicator(
+                    modifier    = Modifier.size(36.dp),
+                    color       = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 3.dp
+                )
+            }
+        }
+    }
+}

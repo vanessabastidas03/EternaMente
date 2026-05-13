@@ -27,6 +27,9 @@ interface UserDao {
     @Query("UPDATE users SET consentGivenAt = :timestamp WHERE id = :userId")
     suspend fun updateConsentTimestamp(userId: String, timestamp: Long)
 
+    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    suspend fun getUserByEmail(email: String): UserEntity?
+
     @Query("DELETE FROM users WHERE id = :userId")
     suspend fun deleteUser(userId: String)
 }

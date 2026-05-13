@@ -7,7 +7,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.first
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -40,6 +42,7 @@ class UserPreferencesRepository @Inject constructor(
         val KEY_HAPTIC_FEEDBACK       = booleanPreferencesKey("haptic_feedback")
         val KEY_DARK_MODE             = booleanPreferencesKey("dark_mode")
         val KEY_ONBOARDING_COMPLETED  = booleanPreferencesKey("onboarding_completed")
+        val KEY_CURRENT_USER_ID       = stringPreferencesKey("current_user_id")
     }
 
     /** Flujo de preferencias actuales; emite al iniciarse y en cada cambio. */
@@ -54,7 +57,8 @@ class UserPreferencesRepository @Inject constructor(
                 highContrast        = prefs[KEY_HIGH_CONTRAST]        ?: false,
                 hapticFeedback      = prefs[KEY_HAPTIC_FEEDBACK]      ?: true,
                 darkMode            = prefs[KEY_DARK_MODE]            ?: false,
-                onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false
+                onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
+                currentUserId       = prefs[KEY_CURRENT_USER_ID]
             )
         }
 
@@ -119,4 +123,27 @@ class UserPreferencesRepository @Inject constructor(
             prefs[KEY_HAPTIC_FEEDBACK] = enabled
         }
     }
+
+    /**
+     * Persiste o borra el UUID del usuario activo.
+     *
+     * - `userId != null` → sesión abierta (después de login o registro exitoso).
+     * - `userId == null` → logout (borra la clave del DataStore).
+     */
+    suspend fun updateCurrentUserId(userId: String?) {
+        context.userPrefsDataStore.edit { prefs ->
+            if (userId != null) prefs[KEY_CURRENT_USER_ID] = userId
+            else prefs.remove(KEY_CURRENT_USER_ID)
+        }
+    }
+
+    /**
+     * Devuelve el UUID del usuario activo sin crear un Flow.
+     * Usa [kotlinx.coroutines.flow.first] para leer el valor actual de DataStore.
+     */
+    suspend fun getCurrentUserId(): String? =
+        context.userPrefsDataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[KEY_CURRENT_USER_ID] }
+            .first()
 }

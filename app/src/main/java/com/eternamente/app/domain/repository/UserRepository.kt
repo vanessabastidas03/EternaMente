@@ -83,6 +83,17 @@ interface UserRepository {
     suspend fun recordConsent(userId: String, timestamp: Long): Result<Unit>
 
     /**
+     * Retrieves a [User] by their email address (lowercase, trimmed).
+     *
+     * Used by [com.eternamente.app.domain.usecase.LoginUserUseCase] to find the user
+     * before verifying the PIN hash.
+     *
+     * @param email Lowercase email address of the target user.
+     * @return [Result.Success] with the [User] or `null` if no user has that email.
+     */
+    suspend fun getUserByEmail(email: String): Result<User?>
+
+    /**
      * Deletes the user's account, all local data, and the remote Firestore document.
      *
      * This operation is irreversible. Implementations must also revoke the

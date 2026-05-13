@@ -127,11 +127,23 @@ fun NavGraph(
 
             composable(Screen.Splash.route) {
                 SplashScreen(
-                    innerPadding       = innerPadding,
-                    onNavigateToOnboarding = {
-                        navController.navigate(Screen.Onboarding(0).navRoute())
+                    innerPadding           = innerPadding,
+                    onNavigateToRegister   = {
+                        navController.navigate(Screen.Register.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
                     },
-                    onNavigateToDashboard = {
+                    onNavigateToLogin      = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToOnboarding = {
+                        navController.navigate(Screen.Onboarding(0).navRoute()) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToDashboard  = {
                         navController.navigate(Screen.Dashboard.route) {
                             popUpTo(Screen.Splash.route) { inclusive = true }
                         }
@@ -160,21 +172,25 @@ fun NavGraph(
 
             composable(Screen.Register.route) {
                 RegisterScreen(
-                    innerPadding    = innerPadding,
-                    onNavigateToLogin   = { navController.navigate(Screen.Login.route) },
-                    onNavigateToConsent = { navController.navigate(Screen.Consent.route) }
+                    innerPadding           = innerPadding,
+                    onNavigateToLogin      = { navController.navigate(Screen.Login.route) },
+                    onNavigateToOnboarding = {
+                        navController.navigate(Screen.Onboarding(0).navRoute()) {
+                            popUpTo(Screen.Register.route) { inclusive = true }
+                        }
+                    }
                 )
             }
 
             composable(Screen.Login.route) {
                 LoginScreen(
-                    innerPadding      = innerPadding,
+                    innerPadding          = innerPadding,
                     onNavigateToDashboard = {
                         navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(Screen.Splash.route) { inclusive = true }
+                            popUpTo(Screen.Login.route) { inclusive = true }
                         }
                     },
-                    onNavigateToRegister = { navController.navigate(Screen.Register.route) }
+                    onNavigateToRegister  = { navController.navigate(Screen.Register.route) }
                 )
             }
 
