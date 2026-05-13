@@ -2,14 +2,17 @@ package com.eternamente.app.presentation.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -21,6 +24,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.Dp
@@ -29,25 +33,30 @@ import androidx.compose.ui.unit.dp
 private const val PIN_LENGTH = 6
 
 /**
- * Campo de entrada de PIN de 6 dígitos con indicadores visuales circulares.
+ * Campo de entrada de PIN de 6 dígitos con indicadores visuales de cuadros.
  *
- * Muestra 6 círculos: rellenos (●) para los dígitos ingresados y vacíos (○)
- * para los pendientes. El teclado numérico se activa automáticamente.
+ * ## Por qué funciona la interacción
+ * Un [BasicTextField] invisible (`height = 1.dp`) captura el input del teclado.
+ * El [Box] exterior tiene `Modifier.clickable` que llama a [FocusRequester.requestFocus]
+ * en cada toque. Los cuadros indicadores internos no tienen `clickable`, por lo que
+ * el evento de toque burbujea al padre y el Box lo captura con su `clickable`.
  *
- * **Accesibilidad:**
- * - El [contentDescription] anuncia cuántos dígitos se han ingresado.
- * - El campo subyacente es invisible; los círculos son decorativos.
- * - Compatible con TalkBack y switch access.
+ * ## Navegación entre campos
+ * El parámetro [focusRequester] se expone para control externo:
+ * ```kotlin
+ * val confirmFr = remember { FocusRequester() }
+ * PinInputField(imeAction = ImeAction.Next, onImeAction = { confirmFr.requestFocus() })
+ * PinInputField(focusRequester = confirmFr, imeAction = ImeAction.Done)
+ * ```
  *
- * **Seguridad:**
- * - Usa [PasswordVisualTransformation] en el [BasicTextField] subyacente.
- * - El PIN nunca se renderiza como texto visible.
- *
- * @param pin          Valor actual del PIN (solo dígitos, longitud ≤ 6).
- * @param onPinChanged Callback invocado con cada cambio de dígito.
- * @param modifier     Modificador externo.
- * @param isError      `true` → círculos en color de error.
- * @param dotSize      Tamaño de cada círculo (default 16 dp).
+ * @param pin              Valor actual (solo dígitos, longitud ≤ 6).
+ * @param onPinChanged     Callback por cada cambio de dígito.
+ * @param modifier         Modificador externo.
+ * @param isError          `true` → cuadros en color de error.
+ * @param focusRequester   Control de foco externo; por defecto se crea internamente.
+ * @param imeAction        Acción del botón de teclado (Next / Done).
+ * @param onImeAction      Lambda al pulsar el botón de acción del teclado.
+ * @param dotSize          Tamaño del punto relleno en cada cuadro.
  * @param contentDescription Descripción para TalkBack.
  */
 @Composable
@@ -56,35 +65,52 @@ fun PinInputField(
     onPinChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
     isError: Boolean = false,
+    focusRequester: FocusRequester = remember { FocusRequester() },
+    imeAction: ImeAction = ImeAction.Next,
+    onImeAction: () -> Unit = {},
     dotSize: Dp = 16.dp,
     contentDescription: String = "Campo de PIN de $PIN_LENGTH dígitos, ${pin.length} ingresados"
 ) {
-    val focusRequester = remember { FocusRequester() }
-    val activeColor    = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-    val emptyColor     = MaterialTheme.colorScheme.surfaceVariant
+    val activeColor = if (isError) MaterialTheme.colorScheme.error
+                      else MaterialTheme.colorScheme.primary
 
     Box(
         modifier = modifier
             .fillMaxWidth()
+            // ← CORRECCIÓN PRINCIPAL: cualquier toque en el Box (incluyendo sobre los
+            // cuadros visuales que no consumen el evento) llega aquí y solicita el foco.
+            .clickable { focusRequester.requestFocus() }
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center
     ) {
-        // TextField invisible que captura la entrada del teclado
+
+        // BasicTextField invisible — todo el ancho, 1 dp de alto.
+        // Invisible visualmente pero recibe input del teclado tras requestFocus().
         BasicTextField(
-            value           = pin,
-            onValueChange   = { new ->
+            value            = pin,
+            onValueChange    = { new ->
                 if (new.length <= PIN_LENGTH && new.all { it.isDigit() }) {
                     onPinChanged(new)
                 }
             },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            keyboardOptions  = KeyboardOptions(
+                keyboardType = KeyboardType.NumberPassword,
+                imeAction    = imeAction
+            ),
+            keyboardActions  = KeyboardActions(
+                onNext = { onImeAction() },
+                onDone = { onImeAction() },
+                onGo   = { onImeAction() }
+            ),
             visualTransformation = PasswordVisualTransformation(),
-            modifier        = Modifier
+            modifier         = Modifier
                 .focusRequester(focusRequester)
-                .size(1.dp)  // Invisible pero enfocable
+                .fillMaxWidth()
+                .height(1.dp)   // El clickable del Box gestiona el acceso táctil
         )
 
-        // Indicadores visuales de cada posición del PIN
+        // ── Cuadros indicadores visuales ─────────────────────────────────────────
+        // No tienen Modifier.clickable → el toque burbujea al Box padre.
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment     = Alignment.CenterVertically

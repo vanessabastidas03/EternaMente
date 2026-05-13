@@ -49,14 +49,27 @@ class AuthViewModel @Inject constructor(
     }
 
     fun onRegisterPinChanged(pin: String) {
+        // Rechazar entrada no numérica o mayor a 6 dígitos
         if (pin.length > 6 || !pin.all { it.isDigit() }) return
-        val error = if (pin.length == 6 && !pin.all { it.isDigit() }) "Solo dígitos" else null
-        _registerState.update { it.copy(pin = pin, pinError = error) }
+
+        // Revalidar el campo de confirmación cuando el PIN principal cambia.
+        // Sin esto, un usuario que corrige el PIN principal después de haber
+        // introducido la confirmación dejará canSubmit en estado incorrecto.
+        val currentConfirm = _registerState.value.confirmPin
+        val confirmError = if (currentConfirm.isNotBlank() && currentConfirm != pin) {
+            "Los PINs no coinciden"
+        } else null
+
+        _registerState.update {
+            it.copy(pin = pin, pinError = null, confirmPinError = confirmError)
+        }
     }
 
     fun onRegisterConfirmPinChanged(confirm: String) {
         if (confirm.length > 6 || !confirm.all { it.isDigit() }) return
-        val error = if (confirm.isNotBlank() && confirm != _registerState.value.pin) "Los PINs no coinciden" else null
+        val error = if (confirm.isNotBlank() && confirm != _registerState.value.pin) {
+            "Los PINs no coinciden"
+        } else null
         _registerState.update { it.copy(confirmPin = confirm, confirmPinError = error) }
     }
 
