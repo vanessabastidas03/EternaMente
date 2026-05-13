@@ -33,6 +33,7 @@ class CryptoManager @Inject constructor(
 ) {
 
     private companion object {
+        // ── SQLCipher key (Keystore AES-GCM) ─────────────────────────────────
         const val KEYSTORE_PROVIDER     = "AndroidKeyStore"
         const val MASTER_KEY_ALIAS      = "EternaMenteMasterKey_v1"
         const val PREFS_FILE            = "eternamente_crypto.prefs"
@@ -41,6 +42,12 @@ class CryptoManager @Inject constructor(
         const val GCM_IV_SIZE_BYTES     = 12
         const val GCM_TAG_BIT_LENGTH    = 128
         const val AES_GCM_NO_PADDING    = "AES/GCM/NoPadding"
+
+        // ── PIN hashing (PBKDF2-SHA256) ───────────────────────────────────────
+        const val PBKDF2_ALGORITHM       = "PBKDF2WithHmacSHA256"
+        const val PBKDF2_ITERATIONS      = 100_000
+        const val PBKDF2_KEY_LENGTH_BITS = 256
+        const val SALT_SIZE_BYTES        = 32
     }
 
     /**
@@ -110,4 +117,60 @@ class CryptoManager @Inject constructor(
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateMasterKey(), GCMParameterSpec(GCM_TAG_BIT_LENGTH, iv))
         return cipher.doFinal(ciphertext)
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // PIN hashing — PBKDF2WithHmacSHA256
+    //
+    // El PIN NUNCA se almacena en texto plano. Se deriva con PBKDF2-SHA256
+    // usando 100 000 iteraciones (recomendación NIST SP 800-132 para 2024).
+    // La comparación usa MessageDigest.isEqual (tiempo constante) para prevenir
+    // ataques de timing.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Genera un salt criptográficamente seguro de [SALT_SIZE_BYTES] bytes,
+     * codificado en Base64 sin padding para almacenamiento en Room.
+     */
+    fun generateSalt(): String {
+        val salt = ByteArray(SALT_SIZE_BYTES).also { SecureRandom().nextBytes(it) }
+        return Base64.encodeToString(salt, Base64.NO_WRAP)
+    }
+
+    /**
+     * Deriva el hash PBKDF2-SHA256 del PIN con el [saltBase64] dado.
+     *
+     * @param pin        PIN de 6 dígitos en texto plano (se limpia de memoria tras el uso).
+     * @param saltBase64 Salt Base64 generado con [generateSalt].
+     * @return Hash Base64 (256 bits) apto para almacenamiento en Room.
+     */
+    fun hashPin(pin: String, saltBase64: String): String {
+        val salt    = Base64.decode(saltBase64, Base64.NO_WRAP)
+        val factory = javax.crypto.SecretKeyFactory.getInstance(PBKDF2_ALGORITHM)
+        val spec    = javax.crypto.spec.PBEKeySpec(
+            pin.toCharArray(), salt, PBKDF2_ITERATIONS, PBKDF2_KEY_LENGTH_BITS
+        )
+        val hash = factory.generateSecret(spec).encoded
+        spec.clearPassword()    // Limpia el PIN de la memoria
+        return Base64.encodeToString(hash, Base64.NO_WRAP)
+    }
+
+    /**
+     * Verifica si [pin] coincide con el hash almacenado.
+     *
+     * Usa comparación de bytes en tiempo constante ([java.security.MessageDigest.isEqual])
+     * para prevenir ataques de timing.
+     *
+     * @param pin               PIN ingresado (texto plano).
+     * @param saltBase64        Salt almacenado (Base64).
+     * @param expectedHashBase64 Hash almacenado (Base64).
+     * @return `true` si el PIN es correcto.
+     */
+    fun verifyPin(pin: String, saltBase64: String, expectedHashBase64: String): Boolean {
+        val computed = hashPin(pin, saltBase64)
+        return java.security.MessageDigest.isEqual(
+            Base64.decode(computed, Base64.NO_WRAP),
+            Base64.decode(expectedHashBase64, Base64.NO_WRAP)
+        )
+    }
+
 }

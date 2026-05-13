@@ -78,6 +78,10 @@ class UserRepositoryImpl @Inject constructor(
         userDao.updateConsentTimestamp(userId, timestamp)
     }
 
+    override suspend fun getUserByEmail(email: String): Result<User?> = safeCall {
+        userDao.getUserByEmail(email.lowercase().trim())?.toDomain()
+    }
+
     override suspend fun deleteAccount(userId: String): Result<Unit> = safeCall {
         userDao.deleteUser(userId)
         firebaseAuth.currentUser?.let { fbUser ->

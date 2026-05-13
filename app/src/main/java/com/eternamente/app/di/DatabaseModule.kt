@@ -8,6 +8,7 @@ import com.eternamente.app.data.local.db.dao.GameResultDao
 import com.eternamente.app.data.local.db.dao.GamificationDao
 import com.eternamente.app.data.local.db.dao.MlPredictionDao
 import com.eternamente.app.data.local.db.dao.SessionDao
+import com.eternamente.app.data.local.db.dao.UserCredentialsDao
 import com.eternamente.app.data.local.db.dao.UserDao
 import dagger.Module
 import dagger.Provides
@@ -17,19 +18,6 @@ import dagger.hilt.components.SingletonComponent
 import net.sqlcipher.database.SupportFactory
 import javax.inject.Singleton
 
-/**
- * Hilt module for the local encrypted database and its DAOs.
- *
- * **SQLCipher setup**:
- * 1. [CryptoManager.getOrCreateDatabaseKey] returns a fresh 32-byte passphrase
- *    on first launch or the decrypted passphrase on subsequent launches.
- * 2. A [SupportFactory] wraps the passphrase and is passed to Room's builder.
- * 3. The raw [ByteArray] is **zeroed immediately** after [SupportFactory] copies it,
- *    minimising the time the plaintext key is live on the heap.
- *
- * DAOs are provided as unscoped (new instance per injection site) because they are
- * lightweight wrappers around the singleton [EternaDatabase].
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -42,7 +30,7 @@ object DatabaseModule {
     ): EternaDatabase {
         val passphrase: ByteArray = cryptoManager.getOrCreateDatabaseKey()
         val factory               = SupportFactory(passphrase)
-        passphrase.fill(0)        // Zero the plaintext key from the heap immediately
+        passphrase.fill(0)
 
         return Room.databaseBuilder(
             context,
@@ -50,23 +38,15 @@ object DatabaseModule {
             EternaDatabase.DATABASE_NAME
         )
             .openHelperFactory(factory)
-            // Production: replace with explicit MigrationStrategy when bumping version
+            .addMigrations(EternaDatabase.MIGRATION_1_2)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }
 
-    @Provides
-    fun provideUserDao(db: EternaDatabase): UserDao = db.userDao()
-
-    @Provides
-    fun provideSessionDao(db: EternaDatabase): SessionDao = db.sessionDao()
-
-    @Provides
-    fun provideGameResultDao(db: EternaDatabase): GameResultDao = db.gameResultDao()
-
-    @Provides
-    fun provideMlPredictionDao(db: EternaDatabase): MlPredictionDao = db.mlPredictionDao()
-
-    @Provides
-    fun provideGamificationDao(db: EternaDatabase): GamificationDao = db.gamificationDao()
+    @Provides fun provideUserDao(db: EternaDatabase): UserDao = db.userDao()
+    @Provides fun provideSessionDao(db: EternaDatabase): SessionDao = db.sessionDao()
+    @Provides fun provideGameResultDao(db: EternaDatabase): GameResultDao = db.gameResultDao()
+    @Provides fun provideMlPredictionDao(db: EternaDatabase): MlPredictionDao = db.mlPredictionDao()
+    @Provides fun provideGamificationDao(db: EternaDatabase): GamificationDao = db.gamificationDao()
+    @Provides fun provideUserCredentialsDao(db: EternaDatabase): UserCredentialsDao = db.userCredentialsDao()
 }

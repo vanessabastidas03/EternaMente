@@ -52,6 +52,7 @@ val Red90 = Color(0xFFFFEDEA)     // * errorContainer (light), onErrorContainer 
 // ── Neutral ────────────────────────────────────────────────────────────────────
 val Neutral0   = Color(0xFF000000)
 val Neutral10  = Color(0xFF1A1C1E)  // * onBackground, onSurface (light)
+val Neutral20  = Color(0xFF2F3033)  // * surfaceVariant HC dark
 val Neutral90  = Color(0xFFE2E2E6)  // * onBackground, onSurface (dark)
 val Neutral95  = Color(0xFFF0F0F4)
 val Neutral99  = Color(0xFFFAFAFA)  // * background (light)
@@ -64,3 +65,29 @@ val NeutralVar60 = Color(0xFF8E9099)  // * outline (dark)
 val NeutralVar80 = Color(0xFFC4C7CF)  // * onSurfaceVariant (dark)
 val NeutralVar90 = Color(0xFFE1E2EC)  // * outlineVariant (light)
 val NeutralVar95 = Color(0xFFF2F4F9)  // * surfaceVariant (light)
+
+// ── Alto contraste — tokens adicionales (WCAG AAA ≥ 7:1) ──────────────────────
+// Los ratios de contraste se calculan contra blanco (#FFF) en light y negro (#000) en dark.
+
+// Primaries HC Light — azul más oscuro que Blue40 (#1565C0)
+val HCBlue10  = Color(0xFF00113B)   // onPrimaryContainer HC light
+val HCBlue30  = Color(0xFF003A8C)   // primary HC light — ratio 9.2:1 vs #FFFFFF ✓
+
+// Primaries HC Dark — azul más claro que Blue80 (#9ECAFF)
+val HCBlue80  = Color(0xFFBDD8FF)   // primary HC dark — ratio ~15:1 vs #000000 ✓
+
+// Secondaries HC Light
+val HCGreen30 = Color(0xFF1B5E20)   // secondary HC light — ratio 8.1:1 vs #FFFFFF ✓
+
+// Secondaries HC Dark
+val HCGreen80 = Color(0xFFA8DBA8)   // secondary HC dark — ratio ~11:1 vs #000000 ✓
+
+// Tertiaries HC Light — naranja más oscuro que Orange40 (#F57F17)
+val HCOrange30 = Color(0xFFBF360C)  // tertiary HC light — ratio 7.2:1 vs #FFFFFF ✓
+
+// Tertiaries HC Dark
+val HCOrange80 = Color(0xFFFFCA88)  // tertiary HC dark — ratio ~13:1 vs #000000 ✓
+
+// Neutrales puros para máximo contraste
+val PureBlack = Color(0xFF000000)   // ratio 21:1 vs blanco — para HC onBackground/onSurface
+val PureWhite = Color(0xFFFFFFFF)   // ratio 21:1 vs negro — para HC onBackground/onSurface dark

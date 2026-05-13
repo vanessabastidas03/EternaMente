@@ -1,10 +1,12 @@
 package com.eternamente.app.di
 
+import com.eternamente.app.data.repository.AuthRepositoryImpl
 import com.eternamente.app.data.repository.GameResultRepositoryImpl
 import com.eternamente.app.data.repository.GamificationRepositoryImpl
 import com.eternamente.app.data.repository.MlRepositoryImpl
 import com.eternamente.app.data.repository.SessionRepositoryImpl
 import com.eternamente.app.data.repository.UserRepositoryImpl
+import com.eternamente.app.domain.repository.AuthRepository
 import com.eternamente.app.domain.repository.GameResultRepository
 import com.eternamente.app.domain.repository.GamificationRepository
 import com.eternamente.app.domain.repository.MlRepository
@@ -35,6 +37,10 @@ abstract class RepositoryModule {
      * [UserRepositoryImpl] is `@Singleton` on its own class declaration;
      * this `@Binds` declaration exposes that singleton under the interface type.
      */
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+
     @Binds
     @Singleton
     abstract fun bindUserRepository(impl: UserRepositoryImpl): UserRepository

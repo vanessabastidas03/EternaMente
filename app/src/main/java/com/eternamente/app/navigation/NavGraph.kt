@@ -25,7 +25,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.eternamente.app.presentation.auth.ConsentScreen
 import com.eternamente.app.presentation.auth.LoginScreen
-import com.eternamente.app.presentation.auth.OnboardingScreen
+import com.eternamente.app.presentation.onboarding.OnboardingScreen
 import com.eternamente.app.presentation.auth.RegisterScreen
 import com.eternamente.app.presentation.auth.SplashScreen
 import com.eternamente.app.presentation.dashboard.DashboardScreen
@@ -127,11 +127,23 @@ fun NavGraph(
 
             composable(Screen.Splash.route) {
                 SplashScreen(
-                    innerPadding       = innerPadding,
-                    onNavigateToOnboarding = {
-                        navController.navigate(Screen.Onboarding(0).navRoute())
+                    innerPadding           = innerPadding,
+                    onNavigateToRegister   = {
+                        navController.navigate(Screen.Register.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
                     },
-                    onNavigateToDashboard = {
+                    onNavigateToLogin      = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToOnboarding = {
+                        navController.navigate(Screen.Onboarding(0).navRoute()) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToDashboard  = {
                         navController.navigate(Screen.Dashboard.route) {
                             popUpTo(Screen.Splash.route) { inclusive = true }
                         }
@@ -142,18 +154,17 @@ fun NavGraph(
             composable(
                 route     = Screen.Onboarding.ROUTE,
                 arguments = listOf(navArgument("step") { type = NavType.IntType })
-            ) { backStack ->
-                val step = backStack.arguments?.getInt("step") ?: 0
+            ) { _ ->
+                // Los 4 pasos se gestionan internamente por OnboardingViewModel.
+                // El argumento {step} de la ruta se ignora (siempre se inicia desde Welcome).
                 OnboardingScreen(
-                    innerPadding     = innerPadding,
-                    step             = step,
-                    onNextStep       = {
-                        navController.navigate(Screen.Onboarding(step + 1).navRoute())
+                    innerPadding          = innerPadding,
+                    onNavigateToDashboard = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
                     },
-                    onNavigateToRegister = {
-                        navController.navigate(Screen.Register.route)
-                    },
-                    onNavigateToLogin = {
+                    onNavigateToLogin     = {
                         navController.navigate(Screen.Login.route)
                     }
                 )
@@ -161,21 +172,25 @@ fun NavGraph(
 
             composable(Screen.Register.route) {
                 RegisterScreen(
-                    innerPadding    = innerPadding,
-                    onNavigateToLogin   = { navController.navigate(Screen.Login.route) },
-                    onNavigateToConsent = { navController.navigate(Screen.Consent.route) }
+                    innerPadding           = innerPadding,
+                    onNavigateToLogin      = { navController.navigate(Screen.Login.route) },
+                    onNavigateToOnboarding = {
+                        navController.navigate(Screen.Onboarding(0).navRoute()) {
+                            popUpTo(Screen.Register.route) { inclusive = true }
+                        }
+                    }
                 )
             }
 
             composable(Screen.Login.route) {
                 LoginScreen(
-                    innerPadding      = innerPadding,
+                    innerPadding          = innerPadding,
                     onNavigateToDashboard = {
                         navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(Screen.Splash.route) { inclusive = true }
+                            popUpTo(Screen.Login.route) { inclusive = true }
                         }
                     },
-                    onNavigateToRegister = { navController.navigate(Screen.Register.route) }
+                    onNavigateToRegister  = { navController.navigate(Screen.Register.route) }
                 )
             }
 

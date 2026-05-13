@@ -4,10 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
 import com.eternamente.app.navigation.NavGraph
 import com.eternamente.app.navigation.Screen
+import com.eternamente.app.presentation.main.MainViewModel
+import com.eternamente.app.ui.theme.AccessibilityConfig
 import com.eternamente.app.ui.theme.EternaMenteTheme
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
@@ -15,19 +20,28 @@ import dagger.hilt.android.AndroidEntryPoint
 /**
  * Única Activity de EternaMente (Single-Activity Architecture).
  *
- * Responsabilidades:
- * - Habilitar el modo edge-to-edge (insets gestionados por los composables hoja).
- * - Determinar el destino de inicio según el estado de autenticación.
- * - Instanciar el [NavGraph] raíz dentro del tema de la aplicación.
+ * ## Integración de tema reactivo
  *
- * **startDestination**: se evalúa una única vez con [remember] para evitar
- * re-composición al rotar la pantalla.
- * - [FirebaseAuth.currentUser] != null → [Screen.Dashboard] (sesión activa)
- * - null → [Screen.Splash] (flujo de auth)
+ * El flujo es el siguiente:
+ * ```
+ * UserPreferencesRepository (DataStore)
+ *   └── Flow<UserPreferences>
+ *         └── MainViewModel.preferences: StateFlow<UserPreferences>
+ *               └── collectAsState() en setContent
+ *                     └── EternaMenteTheme(darkTheme, highContrast)
+ *                           └── LightCS / DarkCS / HCLightCS / HCDarkCS
+ * ```
  *
- * En producción esta lógica puede moverse a un `MainViewModel` que observe
- * el [UserRepository.observeCurrentUser] Flow y exponga el destino de inicio
- * como un `StateFlow`.
+ * Cuando [OnboardingViewModel] escribe en DataStore con `updateDarkMode()` o
+ * `updateHighContrast()`, el Flow emite inmediatamente, [MainViewModel] lo propaga
+ * como [StateFlow], `collectAsState()` invalida la composición y Compose
+ * re-ejecuta [EternaMenteTheme] con el esquema correcto. **Sin `recreate()`.**
+ *
+ * ## Inicio en el destino correcto
+ *
+ * El `startDestination` se calcula una sola vez con `remember` para que no cambie
+ * ante recomposiciones. El check de FirebaseAuth es síncrono (caché local del SDK)
+ * y no bloquea el hilo principal.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -37,17 +51,27 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            EternaMenteTheme {
+            // ── Recolectar preferencias del usuario desde DataStore ────────────
+            val mainViewModel: MainViewModel = hiltViewModel()
+            val prefs by mainViewModel.preferences.collectAsState()
+
+            // ── Aplicar tema reactivo — sin recreate() ─────────────────────────
+            EternaMenteTheme(
+                darkTheme           = prefs.darkMode,
+                highContrast        = prefs.highContrast,
+                accessibilityConfig = AccessibilityConfig(
+                    hapticFeedback = prefs.hapticFeedback
+                )
+            ) {
                 val navController = rememberNavController()
 
-                // Evaluado una única vez — no reactivo a cambios de auth en tiempo real.
-                // La reactividad se implementará con MainViewModel + collectAsState().
+                // startDestination calculado una sola vez; FirebaseAuth.currentUser
+                // es síncrono (caché local del SDK, sin I/O).
                 val startDestination = remember {
-                    if (FirebaseAuth.getInstance().currentUser != null) {
+                    if (FirebaseAuth.getInstance().currentUser != null)
                         Screen.Dashboard.route
-                    } else {
+                    else
                         Screen.Splash.route
-                    }
                 }
 
                 NavGraph(

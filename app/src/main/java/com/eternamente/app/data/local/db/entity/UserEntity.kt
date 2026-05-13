@@ -8,6 +8,7 @@ import com.eternamente.app.domain.model.User
 @Entity(tableName = "users")
 data class UserEntity(
     @PrimaryKey val id: String,
+    val email: String,          // Identificador de login (lowercase, trimmed)
     val name: String,
     val age: Int,
     val educationYears: Int,
@@ -18,6 +19,7 @@ data class UserEntity(
 
 internal fun UserEntity.toDomain() = User(
     id             = id,
+    email          = email,
     name           = name,
     age            = age,
     educationYears = educationYears,
@@ -28,6 +30,7 @@ internal fun UserEntity.toDomain() = User(
 
 internal fun User.toEntity() = UserEntity(
     id             = id,
+    email          = email,
     name           = name,
     age            = age,
     educationYears = educationYears,
