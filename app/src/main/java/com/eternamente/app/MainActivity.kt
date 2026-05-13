@@ -4,105 +4,57 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
+import androidx.compose.runtime.remember
 import androidx.navigation.compose.rememberNavController
+import com.eternamente.app.navigation.NavGraph
+import com.eternamente.app.navigation.Screen
 import com.eternamente.app.ui.theme.EternaMenteTheme
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
- * Single-Activity host for the EternaMente Compose UI.
+ * Única Activity de EternaMente (Single-Activity Architecture).
  *
- * Responsibilities:
- * - Enable edge-to-edge rendering (window insets handled inside composables).
- * - Provide the [NavHost] root composable that owns the back stack.
+ * Responsabilidades:
+ * - Habilitar el modo edge-to-edge (insets gestionados por los composables hoja).
+ * - Determinar el destino de inicio según el estado de autenticación.
+ * - Instanciar el [NavGraph] raíz dentro del tema de la aplicación.
  *
- * All navigation logic and screen composables live in the `presentation` layer;
- * [MainActivity] is intentionally thin.
+ * **startDestination**: se evalúa una única vez con [remember] para evitar
+ * re-composición al rotar la pantalla.
+ * - [FirebaseAuth.currentUser] != null → [Screen.Dashboard] (sesión activa)
+ * - null → [Screen.Splash] (flujo de auth)
+ *
+ * En producción esta lógica puede moverse a un `MainViewModel` que observe
+ * el [UserRepository.observeCurrentUser] Flow y exponga el destino de inicio
+ * como un `StateFlow`.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()          // Must be called before super.onCreate()
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
         setContent {
             EternaMenteTheme {
                 val navController = rememberNavController()
-                EternaNavHost(navController = navController)
-            }
-        }
-    }
-}
 
-/**
- * Root navigation graph for EternaMente.
- *
- * All route strings are defined in [NavRoutes] to avoid stringly-typed errors.
- * Screen composables are added here as each feature module is implemented.
- *
- * @param navController The [NavHostController] that manages the back stack.
- */
-@Composable
-fun EternaNavHost(navController: NavHostController) {
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        NavHost(
-            navController    = navController,
-            startDestination = NavRoutes.HOME,
-            modifier         = Modifier.padding(innerPadding)
-        ) {
-            composable(NavRoutes.HOME) {
-                // Placeholder — replaced by HomeScreen composable in presentation layer
-                Box(
-                    modifier        = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text  = "EternaMente",
-                        style = MaterialTheme.typography.headlineLarge
-                    )
+                // Evaluado una única vez — no reactivo a cambios de auth en tiempo real.
+                // La reactividad se implementará con MainViewModel + collectAsState().
+                val startDestination = remember {
+                    if (FirebaseAuth.getInstance().currentUser != null) {
+                        Screen.Dashboard.route
+                    } else {
+                        Screen.Splash.route
+                    }
                 }
-            }
-            composable(NavRoutes.LOGIN) {
-                // LoginScreen — to be implemented
-            }
-            composable(NavRoutes.REGISTER) {
-                // RegisterScreen — to be implemented
-            }
-            composable(NavRoutes.REPORT) {
-                // ReportScreen — to be implemented
-            }
-            composable(NavRoutes.PROFILE) {
-                // ProfileScreen — to be implemented
+
+                NavGraph(
+                    navController    = navController,
+                    startDestination = startDestination
+                )
             }
         }
     }
-}
-
-/**
- * Compile-time-safe navigation route constants.
- *
- * Route strings are centralised here to prevent typo-based navigation failures.
- * Arguments are embedded as `{argName}` segments following Navigation Compose conventions.
- */
-object NavRoutes {
-    const val HOME     = "home"
-    const val LOGIN    = "login"
-    const val REGISTER = "register"
-    const val REPORT   = "report"
-    const val PROFILE  = "profile"
-    const val GAME     = "game/{gameId}"
-
-    /** Builds the deep-link route for a specific mini-game. */
-    fun game(gameId: String) = "game/$gameId"
 }
