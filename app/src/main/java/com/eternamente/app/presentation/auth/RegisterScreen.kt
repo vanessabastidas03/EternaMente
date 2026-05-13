@@ -20,11 +20,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,14 +41,19 @@ import com.eternamente.app.presentation.component.PinInputField
 /**
  * Pantalla de registro de cuenta con autenticación local por PIN.
  *
- * **Campos:**
- * - Nombre completo (validación: no vacío, mínimo 2 caracteres)
- * - Correo electrónico (validación regex)
- * - PIN de 6 dígitos (teclado numérico, puntos en lugar de dígitos)
- * - Confirmación de PIN (debe coincidir con el PIN)
+ * ## Flujo de navegación por teclado
+ * 1. Nombre → (Next) → Correo → (Next) → PIN principal
+ * 2. PIN principal → (Next) → PIN de confirmación
+ * 3. PIN de confirmación → (Done) → cierra el teclado
  *
- * **Seguridad:** el PIN nunca se almacena ni transmite en texto plano.
- * [AuthViewModel] delega el hashing a [RegisterUserUseCase] → [CryptoManager].
+ * El traspaso de foco entre PIN1 y PIN2 se gestiona con [FocusRequester]:
+ * - `confirmPinFocusRequester` es creado en este composable y pasado a [PinInputField].
+ * - Cuando el usuario pulsa `Next` en el PIN principal, `confirmPinFocusRequester.requestFocus()`
+ *   mueve el foco al campo de confirmación y abre el teclado numérico en él.
+ *
+ * ## Estado
+ * [AuthViewModel.registerState] expone [RegisterState] como StateFlow.
+ * El botón se habilita cuando [RegisterState.canSubmit] es `true`.
  */
 @Composable
 fun RegisterScreen(
@@ -52,8 +61,14 @@ fun RegisterScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToOnboarding: () -> Unit
 ) {
-    val viewModel: AuthViewModel = hiltViewModel()
-    val state by viewModel.registerState.collectAsState()
+    val viewModel       = hiltViewModel<AuthViewModel>()
+    val state           by viewModel.registerState.collectAsState()
+    val keyboard        = LocalSoftwareKeyboardController.current
+
+    // FocusRequester para el campo de confirmación de PIN.
+    // Creado aquí (no en PinInputField) para poder pasárselo como callback
+    // al primer campo PIN a través de onImeAction.
+    val confirmPinFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) onNavigateToOnboarding()
@@ -69,8 +84,8 @@ fun RegisterScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 16.dp)
                 .semantics { contentDescription = "Pantalla de creación de cuenta" },
-            horizontalAlignment  = Alignment.CenterHorizontally,
-            verticalArrangement  = Arrangement.spacedBy(0.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
 
             Spacer(Modifier.height(12.dp))
@@ -107,7 +122,8 @@ fun RegisterScreen(
                 label             = "Nombre completo",
                 isError           = state.nameError != null,
                 supportingText    = state.nameError,
-                accessibilityHint = "Campo de nombre completo"
+                accessibilityHint = "Campo de nombre completo",
+                imeAction         = ImeAction.Next
             )
 
             Spacer(Modifier.height(16.dp))
@@ -120,12 +136,13 @@ fun RegisterScreen(
                 isError           = state.emailError != null,
                 supportingText    = state.emailError,
                 keyboardType      = KeyboardType.Email,
-                accessibilityHint = "Campo de correo electrónico"
+                accessibilityHint = "Campo de correo electrónico",
+                imeAction         = ImeAction.Next
             )
 
             Spacer(Modifier.height(24.dp))
 
-            // ── PIN ───────────────────────────────────────────────────────────
+            // ── PIN principal ─────────────────────────────────────────────────
             Text(
                 text     = "Elige tu PIN de 6 dígitos",
                 style    = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -133,9 +150,9 @@ fun RegisterScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                text  = "Lo usarás para entrar a la app cada día",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text     = "Lo usarás para entrar a la app cada día",
+                style    = MaterialTheme.typography.bodyLarge,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -145,14 +162,17 @@ fun RegisterScreen(
                 pin               = state.pin,
                 onPinChanged      = viewModel::onRegisterPinChanged,
                 isError           = state.pinError != null,
+                // ImeAction.Next + onImeAction mueve el foco al campo de confirmación
+                imeAction         = ImeAction.Next,
+                onImeAction       = { confirmPinFocusRequester.requestFocus() },
                 contentDescription = "PIN de seguridad, ${state.pin.length} de 6 dígitos ingresados"
             )
 
             if (state.pinError != null) {
                 Text(
-                    text  = state.pinError!!,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
+                    text     = state.pinError!!,
+                    style    = MaterialTheme.typography.bodyLarge,
+                    color    = MaterialTheme.colorScheme.error,
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                 )
             }
@@ -173,14 +193,18 @@ fun RegisterScreen(
                 pin               = state.confirmPin,
                 onPinChanged      = viewModel::onRegisterConfirmPinChanged,
                 isError           = state.confirmPinError != null,
+                // Recibe el FocusRequester externo para que PIN1 pueda moverle el foco
+                focusRequester    = confirmPinFocusRequester,
+                imeAction         = ImeAction.Done,
+                onImeAction       = { keyboard?.hide() },
                 contentDescription = "Confirmación de PIN, ${state.confirmPin.length} de 6 dígitos ingresados"
             )
 
             if (state.confirmPinError != null) {
                 Text(
-                    text  = state.confirmPinError!!,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
+                    text     = state.confirmPinError!!,
+                    style    = MaterialTheme.typography.bodyLarge,
+                    color    = MaterialTheme.colorScheme.error,
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                 )
             }
@@ -189,11 +213,11 @@ fun RegisterScreen(
             if (state.globalError != null) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text     = state.globalError!!,
-                    style    = MaterialTheme.typography.bodyLarge,
-                    color    = MaterialTheme.colorScheme.error,
+                    text      = state.globalError!!,
+                    style     = MaterialTheme.typography.bodyLarge,
+                    color     = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
+                    modifier  = Modifier
                         .fillMaxWidth()
                         .semantics { contentDescription = "Error: ${state.globalError}" }
                 )
@@ -207,7 +231,8 @@ fun RegisterScreen(
                 onClick            = { viewModel.register() },
                 enabled            = state.canSubmit,
                 isLoading          = state.isLoading,
-                contentDescription = if (state.canSubmit) "Crear cuenta" else "Completa todos los campos para continuar"
+                contentDescription = if (state.canSubmit) "Crear cuenta"
+                                     else "Completa todos los campos para continuar"
             )
 
             Spacer(Modifier.height(16.dp))

@@ -190,6 +190,8 @@ fun LoginScreen(
                 pin               = state.pin,
                 onPinChanged      = viewModel::onLoginPinChanged,
                 isError           = state.globalError != null,
+                imeAction         = androidx.compose.ui.text.input.ImeAction.Done,
+                onImeAction       = { if (state.canSubmit) viewModel.login() },
                 contentDescription = "PIN de acceso, ${state.pin.length} de 6 dígitos ingresados"
             )
 
