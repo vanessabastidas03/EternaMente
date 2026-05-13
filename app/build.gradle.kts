@@ -170,6 +170,8 @@ dependencies {
 
     // ── WorkManager — Tareas en background ──────────────────
     implementation(libs.work.runtime.ktx) // Sesiones programadas, sincronización, backups
+    implementation(libs.hilt.work)        // @HiltWorker + HiltWorkerFactory
+    ksp(libs.hilt.work.compiler)          // KSP: genera fábrica de workers con Hilt
 
     // ── Seguridad ────────────────────────────────────────────
     implementation(libs.security.crypto) // EncryptedSharedPreferences para tokens/keys
