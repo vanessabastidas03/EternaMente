@@ -14,7 +14,6 @@ import com.eternamente.app.domain.usecase.LoginUserUseCase
 import com.eternamente.app.domain.usecase.RegisterUserUseCase
 import com.eternamente.app.domain.usecase.SaveGameResultUseCase
 import com.eternamente.app.domain.usecase.StartSessionUseCase
-import com.eternamente.app.domain.usecase.UpdateGamificationUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -107,12 +106,7 @@ object UseCaseModule {
     ): GenerateReportUseCase =
         GenerateReportUseCase(userRepository, gameResultRepository, mlRepository)
 
-    /**
-     * Provides [UpdateGamificationUseCase] — awards points, updates streaks and
-     * unlocks badges after a session completes.
-     */
-    @Provides
-    fun provideUpdateGamificationUseCase(
-        gamificationRepository: GamificationRepository
-    ): UpdateGamificationUseCase = UpdateGamificationUseCase(gamificationRepository)
+    // UpdateGamificationUseCase is auto-provided by Hilt via @Inject constructor.
+    // It requires GamificationRepository, GameResultRepository, SessionRepository,
+    // and BadgeNotificationHelper — all of which are available in SingletonComponent.
 }

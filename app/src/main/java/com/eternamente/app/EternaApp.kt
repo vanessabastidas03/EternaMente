@@ -1,31 +1,25 @@
 package com.eternamente.app
 
 import android.app.Application
+import com.eternamente.app.core.notifications.BadgeNotificationHelper
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
+import javax.inject.Inject
 
-/**
- * Application entry point for EternaMente.
- *
- * Annotated with [@HiltAndroidApp] to trigger Hilt's code generation and
- * initialise the top-level [SingletonComponent].
- *
- * Responsibilities:
- * - Bootstrap Hilt dependency injection.
- * - Plant Timber logging tree in debug builds only (no-op in release).
- */
 @HiltAndroidApp
 class EternaApp : Application() {
+
+    @Inject lateinit var badgeNotificationHelper: BadgeNotificationHelper
 
     override fun onCreate() {
         super.onCreate()
         initLogging()
+        badgeNotificationHelper.createChannel()
     }
 
     private fun initLogging() {
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
-        // In release, Timber calls are silently discarded — no tree is planted.
     }
 }

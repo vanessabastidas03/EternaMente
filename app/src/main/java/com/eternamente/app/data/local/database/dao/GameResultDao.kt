@@ -99,6 +99,28 @@ interface GameResultDao {
     """)
     suspend fun countGameResultsForUserToday(userId: String, fromEpochMs: Long): Int
 
+    // ── Badge stats queries ──────────────────────────────────────────────────
+
+    /** Count memory games where accuracyPct ≥ [minAccuracy] (for MEMORY_ACE badge). */
+    @Query("SELECT COUNT(*) FROM game_results WHERE userId = :userId AND domain = 'MEMORY' AND accuracyPct >= :minAccuracy")
+    suspend fun countMemoryGamesAboveAccuracy(userId: String, minAccuracy: Float): Int
+
+    /** Count attention games where accuracyPct ≥ 90 (for ATTENTION_CHAMPION badge). */
+    @Query("SELECT COUNT(*) FROM game_results WHERE userId = :userId AND domain = 'ATTENTION' AND accuracyPct >= 90")
+    suspend fun countAttentionGamesPerfect(userId: String): Int
+
+    /** Number of distinct cognitive domains played (for DOMAIN_EXPLORER badge). */
+    @Query("SELECT COUNT(DISTINCT domain) FROM game_results WHERE userId = :userId")
+    suspend fun countUniqueDomains(userId: String): Int
+
+    /** Highest difficulty level ever reached across all games (for LEVEL_MAX badge). */
+    @Query("SELECT COALESCE(MAX(difficultyLevel), 1) FROM game_results WHERE userId = :userId")
+    suspend fun maxDifficultyReached(userId: String): Int
+
+    /** Minimum reaction time (best) in flash_color (for SPEED_DEMON badge); 0 if never played. */
+    @Query("SELECT COALESCE(MIN(reactionTimeMsAvg), 0) FROM game_results WHERE userId = :userId AND gameId = 'flash_color'")
+    suspend fun flashColorMinRtMs(userId: String): Float
+
     /** Proyección usada por [getAveragesByDomainSince]. */
     data class DomainAvgRow(val domain: String, val avgScore: Float)
 }

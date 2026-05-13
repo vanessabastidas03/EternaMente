@@ -95,5 +95,23 @@ enum class Badge(
     EARLY_ADOPTER(
         displayName   = "Pionero",
         description   = "Uno de los primeros usuarios de EternaMente"
+    ),
+
+    /** Reaction time < 500 ms in Flash de Colores. */
+    SPEED_DEMON(
+        displayName   = "Velocidad relámpago",
+        description   = "Reaccionaste en menos de 500 ms en Flash de Colores"
+    ),
+
+    /** 14 consecutive days of sessions. */
+    CONSISTENT(
+        displayName   = "Constancia de campeón",
+        description   = "14 días consecutivos de entrenamiento cognitivo"
+    ),
+
+    /** First cognitive report generated. */
+    FIRST_REPORT(
+        displayName   = "Primera mirada",
+        description   = "Generaste tu primer reporte de progreso cognitivo"
     )
 }

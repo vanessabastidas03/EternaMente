@@ -80,4 +80,14 @@ class SessionRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             safeCall { sessionDao.countCompletedBaselines(userId) > 0 }
         }
+
+    override suspend fun countAllCompletedSessions(userId: String): Result<Int> =
+        withContext(Dispatchers.IO) {
+            safeCall { sessionDao.countAllCompleted(userId) }
+        }
+
+    override suspend fun getAllSessionDates(userId: String): Result<List<Long>> =
+        withContext(Dispatchers.IO) {
+            safeCall { sessionDao.getAllSessionDates(userId) }
+        }
 }

@@ -97,4 +97,16 @@ interface SessionRepository {
      * @param userId UUID of the target user.
      */
     suspend fun hasCompletedBaseline(userId: String): Result<Boolean>
+
+    /**
+     * Returns the total number of completed sessions for the user (all time).
+     * Used to evaluate FIRST_STEP and streak-related badge conditions.
+     */
+    suspend fun countAllCompletedSessions(userId: String): Result<Int>
+
+    /**
+     * Returns all session start timestamps (epoch-ms) ordered ascending.
+     * Used to compute the longest gap between sessions for the COMEBACK badge.
+     */
+    suspend fun getAllSessionDates(userId: String): Result<List<Long>>
 }

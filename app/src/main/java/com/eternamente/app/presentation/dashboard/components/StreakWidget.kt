@@ -131,7 +131,7 @@ private fun LottieFlame(modifier: Modifier = Modifier) {
     }
 }
 
-private const val MIN_STREAK_FOR_ANIMATION = 3
+private const val MIN_STREAK_FOR_ANIMATION = 7
 
 // ── Previews ──────────────────────────────────────────────────────────────────
 

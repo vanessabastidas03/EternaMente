@@ -97,9 +97,23 @@ interface GameResultRepository {
     /**
      * Cuenta el total de juegos completados hoy por el usuario,
      * sumando todos los resultados de sesiones que iniciaron hoy.
-     *
-     * @param userId       UUID del usuario.
-     * @param fromEpochMs  Inicio del día en epoch-ms (medianoche local).
      */
     suspend fun countGameResultsForUserToday(userId: String, fromEpochMs: Long): Result<Int>
+
+    // ── Badge stat queries ────────────────────────────────────────────────────
+
+    /** Count MEMORY domain games where accuracyPct ≥ [minAccuracy]. */
+    suspend fun countMemoryGamesAboveAccuracy(userId: String, minAccuracy: Float): Result<Int>
+
+    /** Count ATTENTION domain games where accuracyPct ≥ 90. */
+    suspend fun countAttentionGamesPerfect(userId: String): Result<Int>
+
+    /** Number of distinct cognitive domains the user has played. */
+    suspend fun countUniqueDomains(userId: String): Result<Int>
+
+    /** Highest difficulty level ever reached across all games. */
+    suspend fun maxDifficultyReached(userId: String): Result<Int>
+
+    /** Best (lowest) reaction time in flash_color; 0.0 if never played. */
+    suspend fun flashColorMinRtMs(userId: String): Result<Float>
 }
