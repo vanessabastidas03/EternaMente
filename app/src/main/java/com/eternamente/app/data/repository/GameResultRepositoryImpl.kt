@@ -94,6 +94,21 @@ class GameResultRepositoryImpl @Inject constructor(
         safeCall { gameResultDao.countGameResultsForUserToday(userId, fromEpochMs) }
     }
 
+    override suspend fun countMemoryGamesAboveAccuracy(userId: String, minAccuracy: Float): Result<Int> =
+        withContext(Dispatchers.IO) { safeCall { gameResultDao.countMemoryGamesAboveAccuracy(userId, minAccuracy) } }
+
+    override suspend fun countAttentionGamesPerfect(userId: String): Result<Int> =
+        withContext(Dispatchers.IO) { safeCall { gameResultDao.countAttentionGamesPerfect(userId) } }
+
+    override suspend fun countUniqueDomains(userId: String): Result<Int> =
+        withContext(Dispatchers.IO) { safeCall { gameResultDao.countUniqueDomains(userId) } }
+
+    override suspend fun maxDifficultyReached(userId: String): Result<Int> =
+        withContext(Dispatchers.IO) { safeCall { gameResultDao.maxDifficultyReached(userId) } }
+
+    override suspend fun flashColorMinRtMs(userId: String): Result<Float> =
+        withContext(Dispatchers.IO) { safeCall { gameResultDao.flashColorMinRtMs(userId) } }
+
     /** Versión extendida: promedio por dominio desde hace N semanas (para gráficos). */
     suspend fun getWeeklyAverages(userId: String, weeksBack: Int): Result<Map<CognitiveDomain, Float>> =
         withContext(Dispatchers.IO) {

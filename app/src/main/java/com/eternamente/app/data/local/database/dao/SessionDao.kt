@@ -83,4 +83,12 @@ interface SessionDao {
           AND sessionDate BETWEEN :fromEpochMs AND :toEpochMs
     """)
     suspend fun countCompletedInRange(userId: String, fromEpochMs: Long, toEpochMs: Long): Int
+
+    /** All session dates (epoch-ms) ordered ascending — used to compute longest gap. */
+    @Query("SELECT sessionDate FROM cognitive_sessions WHERE userId = :userId ORDER BY sessionDate ASC")
+    suspend fun getAllSessionDates(userId: String): List<Long>
+
+    /** Total completed sessions ever (for FIRST_STEP badge). */
+    @Query("SELECT COUNT(*) FROM cognitive_sessions WHERE userId = :userId AND completed = 1")
+    suspend fun countAllCompleted(userId: String): Int
 }

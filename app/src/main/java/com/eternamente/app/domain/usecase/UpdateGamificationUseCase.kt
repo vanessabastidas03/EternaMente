@@ -1,84 +1,120 @@
 package com.eternamente.app.domain.usecase
 
 import com.eternamente.app.core.Result
+import com.eternamente.app.core.getOrNull
 import com.eternamente.app.core.getOrThrow
 import com.eternamente.app.core.safeCall
-import com.eternamente.app.domain.model.Badge
+import com.eternamente.app.core.notifications.BadgeNotificationHelper
+import com.eternamente.app.domain.gamification.BadgeStats
+import com.eternamente.app.domain.gamification.GamificationEngine
 import com.eternamente.app.domain.model.CognitiveSession
 import com.eternamente.app.domain.model.GameResult
-import com.eternamente.app.domain.model.GamificationProfile
+import com.eternamente.app.domain.model.GamificationUpdate
+import com.eternamente.app.domain.repository.GameResultRepository
 import com.eternamente.app.domain.repository.GamificationRepository
+import com.eternamente.app.domain.repository.SessionRepository
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
- * Procesa una sesión completada y aplica todas las actualizaciones de gamificación:
- * 1. Puntos: base + bonus por precisión y dificultad.
- * 2. Racha: actualizada con la fecha de hoy.
- * 3. Medallas: evaluación de elegibilidad para todos los [Badge].
+ * Processes a completed session and applies all gamification updates:
+ * 1. **Points** — computed per-game using [GamificationEngine.calculatePoints].
+ * 2. **Streak** — updated via [GamificationEngine.calculateStreakResult].
+ * 3. **Badges** — all 13 badge conditions evaluated via [GamificationEngine.checkBadgeUnlocks].
+ * 4. **Notifications** — a local push notification fires for each newly unlocked badge.
+ *
+ * @return [Result.Success] with a [GamificationUpdate] containing the updated profile,
+ *   total points awarded, and list of newly unlocked badges.
  */
 class UpdateGamificationUseCase @Inject constructor(
-    private val gamificationRepository: GamificationRepository
+    private val gamificationRepository: GamificationRepository,
+    private val gameResultRepository: GameResultRepository,
+    private val sessionRepository: SessionRepository,
+    private val notificationHelper: BadgeNotificationHelper
 ) {
+
+    private val engine = GamificationEngine()
+
     suspend operator fun invoke(
         session: CognitiveSession,
         results: List<GameResult>
-    ): Result<GamificationProfile> = safeCall {
+    ): Result<GamificationUpdate> = safeCall {
         val userId = session.userId
-        require(userId.isNotBlank()) { "userId no puede estar vacío" }
+        require(userId.isNotBlank()) { "userId cannot be empty" }
 
-        // ── 1. Calcular puntos ────────────────────────────────────────────────
-        val basePoints    = BASE_POINTS_PER_SESSION
-        val accuracyBonus = results.sumOf { r ->
-            if (r.isPerfect) BONUS_POINTS_PERFECT_GAME else 0
-        }
-        val difficultyBonus = results.sumOf { r ->
-            (r.difficultyLevel - 1).coerceAtLeast(0) * BONUS_POINTS_PER_DIFFICULTY_LEVEL
-        }
-        val totalPoints = basePoints + accuracyBonus + difficultyBonus
+        // ── 1. Current profile — needed for streak multiplier ─────────────────
+        val profileBefore = gamificationRepository.getProfile(userId).getOrThrow()
+
+        // ── 2. Calculate and award points ─────────────────────────────────────
+        val totalPoints = results.sumOf { engine.calculatePoints(it, profileBefore.currentStreak) }
+            .coerceAtLeast(1)
         gamificationRepository.addPoints(userId, totalPoints).getOrThrow()
 
-        // ── 2. Actualizar racha ───────────────────────────────────────────────
+        // ── 3. Update streak ──────────────────────────────────────────────────
         val today = LocalDate.now(ZoneId.systemDefault()).toString()
-        gamificationRepository.updateStreak(userId, today).getOrThrow()
+        val streakResult = engine.calculateStreakResult(
+            lastSessionDate = profileBefore.lastSessionDate,
+            sessionDate     = today,
+            currentStreak   = profileBefore.currentStreak
+        )
+        if (streakResult !is GamificationEngine.StreakResult.AlreadyDone) {
+            gamificationRepository.updateStreak(userId, today).getOrThrow()
+        }
 
-        // ── 3. Evaluar medallas ───────────────────────────────────────────────
-        val profile = gamificationRepository.getProfile(userId).getOrThrow()
-        evaluateBadges(userId, profile, results)
+        // ── 4. Load stats and check badge unlocks ─────────────────────────────
+        val profileAfterUpdate = gamificationRepository.getProfile(userId).getOrThrow()
+        val stats  = loadBadgeStats(userId)
+        val newBadges = engine.checkBadgeUnlocks(profileAfterUpdate, stats)
 
-        // Devolver perfil actualizado
-        gamificationRepository.getProfile(userId).getOrThrow()
+        for (badge in newBadges) {
+            gamificationRepository.unlockBadge(userId, badge).getOrThrow()
+            notificationHelper.showBadgeUnlocked(badge)
+        }
+
+        // ── 5. Return final state ─────────────────────────────────────────────
+        val finalProfile = gamificationRepository.getProfile(userId).getOrThrow()
+        GamificationUpdate(
+            profile             = finalProfile,
+            pointsAwarded       = totalPoints,
+            newlyUnlockedBadges = newBadges
+        )
     }
 
-    private suspend fun evaluateBadges(
-        userId: String,
-        profile: GamificationProfile,
-        results: List<GameResult>
-    ) {
-        // FIRST_STEP — primera sesión completada
-        if (!profile.hasBadge(Badge.FIRST_STEP)) {
-            gamificationRepository.unlockBadge(userId, Badge.FIRST_STEP)
-        }
-        // WEEK_WARRIOR — 7 días de racha
-        if (profile.currentStreak >= 7 && !profile.hasBadge(Badge.WEEK_WARRIOR)) {
-            gamificationRepository.unlockBadge(userId, Badge.WEEK_WARRIOR)
-        }
-        // MEMORY_ACE — 100% accuracy en memoria
-        val hasPerfectMemory = results.any { it.domain.name == "MEMORY" && it.isPerfect }
-        if (hasPerfectMemory && !profile.hasBadge(Badge.MEMORY_ACE)) {
-            gamificationRepository.unlockBadge(userId, Badge.MEMORY_ACE)
-        }
-        // ATTENTION_CHAMPION — 100% accuracy en atención
-        val hasPerfectAttention = results.any { it.domain.name == "ATTENTION" && it.isPerfect }
-        if (hasPerfectAttention && !profile.hasBadge(Badge.ATTENTION_CHAMPION)) {
-            gamificationRepository.unlockBadge(userId, Badge.ATTENTION_CHAMPION)
-        }
+    // ── Badge stats loader ────────────────────────────────────────────────────
+
+    private suspend fun loadBadgeStats(userId: String): BadgeStats {
+        val totalSessions = sessionRepository.countAllCompletedSessions(userId).getOrNull() ?: 0
+        val memAbove90    = gameResultRepository.countMemoryGamesAboveAccuracy(userId, 90f).getOrNull() ?: 0
+        val attPerfect    = gameResultRepository.countAttentionGamesPerfect(userId).getOrNull() ?: 0
+        val uniqueDomains = gameResultRepository.countUniqueDomains(userId).getOrNull() ?: 0
+        val maxDiff       = gameResultRepository.maxDifficultyReached(userId).getOrNull() ?: 1
+        val flashMinRt    = gameResultRepository.flashColorMinRtMs(userId).getOrNull() ?: 0f
+        val baselineDone  = if (sessionRepository.hasCompletedBaseline(userId).getOrNull() == true) 1 else 0
+        val longestGap    = computeLongestGapDays(userId)
+
+        return BadgeStats(
+            totalSessionsCompleted    = totalSessions,
+            memoryGamesAbove90        = memAbove90,
+            attentionGamesPerfect     = attPerfect,
+            uniqueDomainsTried        = uniqueDomains,
+            maxDifficultyReached      = maxDiff,
+            flashColorMinRtMs         = flashMinRt,
+            baselineSessionsCompleted = baselineDone,
+            longestGapDays            = longestGap,
+            reportsGenerated          = 0
+        )
     }
 
-    companion object {
-        const val BASE_POINTS_PER_SESSION        = 10
-        const val BONUS_POINTS_PERFECT_GAME      = 5
-        const val BONUS_POINTS_PER_DIFFICULTY_LEVEL = 2
+    private suspend fun computeLongestGapDays(userId: String): Int {
+        val dates = sessionRepository.getAllSessionDates(userId).getOrNull() ?: return 0
+        if (dates.size < 2) return 0
+        var maxGap = 0
+        for (i in 1 until dates.size) {
+            val gap = TimeUnit.MILLISECONDS.toDays(dates[i] - dates[i - 1]).toInt()
+            if (gap > maxGap) maxGap = gap
+        }
+        return maxGap
     }
 }
