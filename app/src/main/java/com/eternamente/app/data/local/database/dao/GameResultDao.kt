@@ -121,6 +121,67 @@ interface GameResultDao {
     @Query("SELECT COALESCE(MIN(reactionTimeMsAvg), 0) FROM game_results WHERE userId = :userId AND gameId = 'flash_color'")
     suspend fun flashColorMinRtMs(userId: String): Float
 
+    // ── Feature Engineering queries ───────────────────────────────────────────
+
+    /** Average reaction time (ms) for a cognitive domain since [fromMs]. Null if no rows. */
+    @Query("""
+        SELECT AVG(gr.reactionTimeMsAvg) FROM game_results gr
+        INNER JOIN cognitive_sessions cs ON gr.sessionId = cs.id
+        WHERE gr.userId = :userId AND gr.domain = :domain
+          AND cs.sessionDate >= :fromMs AND gr.reactionTimeMsAvg > 0
+    """)
+    suspend fun avgRtByDomainSince(userId: String, domain: String, fromMs: Long): Float?
+
+    /** Average accuracyPct for a domain since [fromMs]. Null if no rows. */
+    @Query("""
+        SELECT AVG(gr.accuracyPct) FROM game_results gr
+        INNER JOIN cognitive_sessions cs ON gr.sessionId = cs.id
+        WHERE gr.userId = :userId AND gr.domain = :domain AND cs.sessionDate >= :fromMs
+    """)
+    suspend fun avgAccuracyByDomainSince(userId: String, domain: String, fromMs: Long): Float?
+
+    /**
+     * Accuracy values for a domain ordered chronologically (oldest first).
+     * Used to compute the linear trend (slope) of accuracy over time.
+     */
+    @Query("""
+        SELECT gr.accuracyPct FROM game_results gr
+        INNER JOIN cognitive_sessions cs ON gr.sessionId = cs.id
+        WHERE gr.userId = :userId AND gr.domain = :domain AND cs.sessionDate >= :fromMs
+        ORDER BY cs.sessionDate ASC
+    """)
+    suspend fun accuracySeriesByDomainSince(userId: String, domain: String, fromMs: Long): List<Float>
+
+    /**
+     * All reaction times (ms) for a user in the period, excluding zeroes.
+     * Used to compute RT variability (coefficient of variation).
+     */
+    @Query("""
+        SELECT gr.reactionTimeMsAvg FROM game_results gr
+        INNER JOIN cognitive_sessions cs ON gr.sessionId = cs.id
+        WHERE gr.userId = :userId AND cs.sessionDate >= :fromMs AND gr.reactionTimeMsAvg > 0
+    """)
+    suspend fun allRtSince(userId: String, fromMs: Long): List<Float>
+
+    /** Row count for a domain in the period — used for the MIN_DATA_POINTS guard. */
+    @Query("""
+        SELECT COUNT(*) FROM game_results gr
+        INNER JOIN cognitive_sessions cs ON gr.sessionId = cs.id
+        WHERE gr.userId = :userId AND gr.domain = :domain AND cs.sessionDate >= :fromMs
+    """)
+    suspend fun countByDomainSince(userId: String, domain: String, fromMs: Long): Int
+
+    /**
+     * Earliest [limit] scoreNormalized values ordered by insertion (proxy for baseline).
+     * Used to compute delta_from_baseline.
+     */
+    @Query("""
+        SELECT scoreNormalized FROM game_results
+        WHERE userId = :userId
+        ORDER BY rowid ASC LIMIT :limit
+    """)
+    suspend fun earliestScores(userId: String, limit: Int): List<Float>
+
     /** Proyección usada por [getAveragesByDomainSince]. */
     data class DomainAvgRow(val domain: String, val avgScore: Float)
 }

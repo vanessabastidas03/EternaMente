@@ -329,11 +329,19 @@ fun NavGraph(
 
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    innerPadding                   = innerPadding,
-                    onNavigateToAccessibility      = {
+                    innerPadding              = innerPadding,
+                    onNavigateToAccessibility = {
                         navController.navigate(Screen.AccessibilitySettings.route)
                     },
-                    onNavigateBack                 = { navController.popBackStack() }
+                    onNavigateBack            = { navController.popBackStack() },
+                    onLogout                  = {
+                        // Clear the entire back stack so the user cannot press Back
+                        // to return to the Dashboard after logging out.
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 

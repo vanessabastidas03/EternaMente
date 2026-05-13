@@ -2,6 +2,7 @@ package com.eternamente.app.di
 
 import com.eternamente.app.data.repository.AuthRepositoryImpl
 import com.eternamente.app.data.repository.BaselineRepositoryImpl
+import com.eternamente.app.data.repository.FeatureQueryRepositoryImpl
 import com.eternamente.app.data.repository.GameResultRepositoryImpl
 import com.eternamente.app.data.repository.GamificationRepositoryImpl
 import com.eternamente.app.data.repository.MlRepositoryImpl
@@ -9,6 +10,7 @@ import com.eternamente.app.data.repository.SessionRepositoryImpl
 import com.eternamente.app.data.repository.UserRepositoryImpl
 import com.eternamente.app.domain.repository.AuthRepository
 import com.eternamente.app.domain.repository.BaselineRepository
+import com.eternamente.app.domain.repository.FeatureQueryRepository
 import com.eternamente.app.domain.repository.GameResultRepository
 import com.eternamente.app.domain.repository.GamificationRepository
 import com.eternamente.app.domain.repository.MlRepository
@@ -31,4 +33,5 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindMlRepository(impl: MlRepositoryImpl): MlRepository
     @Binds @Singleton abstract fun bindGamificationRepository(impl: GamificationRepositoryImpl): GamificationRepository
     @Binds @Singleton abstract fun bindBaselineRepository(impl: BaselineRepositoryImpl): BaselineRepository
+    @Binds @Singleton abstract fun bindFeatureQueryRepository(impl: FeatureQueryRepositoryImpl): FeatureQueryRepository
 }

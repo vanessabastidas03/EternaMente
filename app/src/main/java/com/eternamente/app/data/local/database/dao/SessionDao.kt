@@ -91,4 +91,11 @@ interface SessionDao {
     /** Total completed sessions ever (for FIRST_STEP badge). */
     @Query("SELECT COUNT(*) FROM cognitive_sessions WHERE userId = :userId AND completed = 1")
     suspend fun countAllCompleted(userId: String): Int
+
+    /** Total sessions started (completed OR not) in a date range — for session_completion_rate. */
+    @Query("""
+        SELECT COUNT(*) FROM cognitive_sessions
+        WHERE userId = :userId AND sessionDate BETWEEN :fromMs AND :toMs
+    """)
+    suspend fun countAllSessionsInRange(userId: String, fromMs: Long, toMs: Long): Int
 }

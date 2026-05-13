@@ -24,6 +24,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // On-device ML model version — bumped when eternamente_ml_v1.tflite is updated
+        buildConfigField("String", "ML_MODEL_VERSION", "\"v1.0\"")
+
         // ABIs para librerías nativas de SQLCipher y TFLite
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
@@ -167,6 +170,8 @@ dependencies {
 
     // ── WorkManager — Tareas en background ──────────────────
     implementation(libs.work.runtime.ktx) // Sesiones programadas, sincronización, backups
+    implementation(libs.hilt.work)        // @HiltWorker + HiltWorkerFactory
+    ksp(libs.hilt.work.compiler)          // KSP: genera fábrica de workers con Hilt
 
     // ── Seguridad ────────────────────────────────────────────
     implementation(libs.security.crypto) // EncryptedSharedPreferences para tokens/keys

@@ -2,6 +2,7 @@ package com.eternamente.app.di
 
 import com.eternamente.app.data.local.crypto.CryptoManager
 import com.eternamente.app.data.local.preferences.UserPreferencesRepository
+import com.eternamente.app.domain.ml.CognitiveAnalyzer
 import com.eternamente.app.domain.repository.AuthRepository
 import com.eternamente.app.domain.repository.GameResultRepository
 import com.eternamente.app.domain.repository.GamificationRepository
@@ -89,10 +90,11 @@ object UseCaseModule {
      */
     @Provides
     fun provideAnalyzeCognitivePatternUseCase(
+        cognitiveAnalyzer:    CognitiveAnalyzer,
         gameResultRepository: GameResultRepository,
-        mlRepository: MlRepository
+        mlRepository:         MlRepository
     ): AnalyzeCognitivePatternUseCase =
-        AnalyzeCognitivePatternUseCase(gameResultRepository, mlRepository)
+        AnalyzeCognitivePatternUseCase(cognitiveAnalyzer, gameResultRepository, mlRepository)
 
     /**
      * Provides [GenerateReportUseCase] — aggregates user profile, recent results,
