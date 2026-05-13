@@ -25,7 +25,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.eternamente.app.presentation.auth.ConsentScreen
 import com.eternamente.app.presentation.auth.LoginScreen
-import com.eternamente.app.presentation.auth.OnboardingScreen
+import com.eternamente.app.presentation.onboarding.OnboardingScreen
 import com.eternamente.app.presentation.auth.RegisterScreen
 import com.eternamente.app.presentation.auth.SplashScreen
 import com.eternamente.app.presentation.dashboard.DashboardScreen
@@ -142,18 +142,17 @@ fun NavGraph(
             composable(
                 route     = Screen.Onboarding.ROUTE,
                 arguments = listOf(navArgument("step") { type = NavType.IntType })
-            ) { backStack ->
-                val step = backStack.arguments?.getInt("step") ?: 0
+            ) { _ ->
+                // Los 4 pasos se gestionan internamente por OnboardingViewModel.
+                // El argumento {step} de la ruta se ignora (siempre se inicia desde Welcome).
                 OnboardingScreen(
-                    innerPadding     = innerPadding,
-                    step             = step,
-                    onNextStep       = {
-                        navController.navigate(Screen.Onboarding(step + 1).navRoute())
+                    innerPadding          = innerPadding,
+                    onNavigateToDashboard = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
                     },
-                    onNavigateToRegister = {
-                        navController.navigate(Screen.Register.route)
-                    },
-                    onNavigateToLogin = {
+                    onNavigateToLogin     = {
                         navController.navigate(Screen.Login.route)
                     }
                 )
