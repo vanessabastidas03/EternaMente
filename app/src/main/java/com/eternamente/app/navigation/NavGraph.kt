@@ -209,9 +209,21 @@ fun NavGraph(
 
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
-                    innerPadding          = innerPadding,
-                    onNavigateToGameCatalog = {
+                    innerPadding             = innerPadding,
+                    onNavigateToGameCatalog  = {
                         navController.navigate(Screen.GameCatalog.route)
+                    },
+                    onNavigateToReport       = {
+                        navController.navigate(Screen.WeeklyReport.route)
+                    },
+                    onNavigateToAchievements = {
+                        navController.navigate(Screen.Achievements.route)
+                    },
+                    onNavigateToSettings     = {
+                        navController.navigate(Screen.Settings.route)
+                    },
+                    onNavigateToAlertDetail  = { alertId ->
+                        navController.navigate(Screen.AlertDetail(alertId).navRoute())
                     }
                 )
             }
