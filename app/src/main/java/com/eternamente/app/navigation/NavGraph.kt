@@ -39,6 +39,7 @@ import com.eternamente.app.presentation.profile.ProfileScreen
 import com.eternamente.app.presentation.profile.SettingsScreen
 import com.eternamente.app.presentation.reports.AlertDetailScreen
 import com.eternamente.app.presentation.reports.MonthlyReportScreen
+import com.eternamente.app.presentation.reports.PdfExportScreen
 import com.eternamente.app.presentation.reports.WeeklyReportScreen
 
 // ── Duración de animaciones ──────────────────────────────────────────────────
@@ -360,7 +361,8 @@ fun NavGraph(
                     onNavigateToMonthly     = { navController.navigate(Screen.MonthlyReport.route) },
                     onNavigateToAlertDetail = { alertId ->
                         navController.navigate(Screen.AlertDetail(alertId).navRoute())
-                    }
+                    },
+                    onNavigateToPdfExport   = { navController.navigate(Screen.PdfExport.route) }
                 )
             }
 
@@ -371,6 +373,13 @@ fun NavGraph(
                         navController.navigate(Screen.AlertDetail(alertId).navRoute())
                     },
                     onNavigateBack          = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.PdfExport.route) {
+                PdfExportScreen(
+                    innerPadding   = innerPadding,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
