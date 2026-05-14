@@ -136,7 +136,7 @@ fun AccessibilityStep(
             FontScale.entries.forEach { scale ->
                 Text(
                     text      = scale.label,
-                    style     = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
+                    style     = MaterialTheme.typography.bodySmall,
                     color     = if (scale == accessibilityForm.fontScale)
                         MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,

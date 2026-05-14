@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -242,8 +244,11 @@ private fun CalendarGrid(yearMonth: YearMonth, completedDays: Set<Int>) {
                 repeat(7) { dow ->
                     val dayNum = week * 7 + dow - offset + 1
                     Box(
-                        modifier          = Modifier.weight(1f).aspectRatio(1f),
-                        contentAlignment  = Alignment.Center
+                        modifier         = Modifier
+                            .weight(1f)
+                            .heightIn(min = 36.dp)   // garantiza altura mínima para legibilidad
+                            .aspectRatio(1f),
+                        contentAlignment = Alignment.Center
                     ) {
                         if (dayNum in 1..daysInMonth) {
                             val done = dayNum in completedDays
@@ -254,13 +259,17 @@ private fun CalendarGrid(yearMonth: YearMonth, completedDays: Set<Int>) {
                                     .clip(CircleShape)
                                     .background(
                                         if (done) Color(0xFF2E7D32) else Color(0xFFE0E0E0)
-                                    ),
+                                    )
+                                    .semantics {
+                                        contentDescription = "Día $dayNum${if (done) ", sesión completada" else ""}"
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     "$dayNum",
-                                    fontSize = 10.sp,
-                                    color    = if (done) Color.White else Color(0xFF757575)
+                                    fontSize  = 12.sp,   // 10 → 12 sp (mínimo práctico en cuadrícula 7 col)
+                                    fontWeight = FontWeight.Medium,
+                                    color     = if (done) Color.White else Color(0xFF757575)
                                 )
                             }
                         }

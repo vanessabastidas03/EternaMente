@@ -30,5 +30,11 @@ data class UserPreferences(
     val notificationHour:     Int     = 9,
     val notificationMinute:   Int     = 0,
     /** First name shown in the daily reminder notification. */
-    val notificationUserName: String  = "amigo"
+    val notificationUserName: String  = "amigo",
+
+    // ── Accessibility preferences ─────────────────────────────────────────────
+    /** Reduce or eliminates animations (card flips, transitions). */
+    val reducedMotion: Boolean = false,
+    /** User declared they use TalkBack — app shows extra descriptive hints. */
+    val talkBackMode: Boolean  = false
 )

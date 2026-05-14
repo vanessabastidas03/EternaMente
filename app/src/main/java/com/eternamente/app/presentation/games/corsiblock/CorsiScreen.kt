@@ -12,7 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -130,8 +132,8 @@ private fun CorsiPlayArea(ui: CorsiUiState, onTap: (Int) -> Unit) {
                             }, RoundedCornerShape(8.dp)
                         )
                         .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                        .then(if (ui.phase == CorsiPhase.INPUT) Modifier.clickable { onTap(idx) } else Modifier)
-                        .semantics { contentDescription = "Bloque ${idx+1}${if (isHighlighted) ", iluminado" else ""}${if (isTapped) ", seleccionado" else ""}" }
+                        .then(if (ui.phase == CorsiPhase.INPUT) Modifier.clickable(role = Role.Button) { onTap(idx) } else Modifier)
+                        .semantics { contentDescription = "Bloque ${idx+1}${if (isHighlighted) ", iluminado" else ""}${if (isTapped) ", seleccionado" else ""}"; role = Role.Button }
                 )
             }
         }

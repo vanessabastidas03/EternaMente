@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +44,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,6 +60,7 @@ import com.eternamente.app.presentation.games.engine.GameState
 import com.eternamente.app.presentation.games.engine.InputFeedback
 import com.eternamente.app.presentation.component.EternaFullWidthButton
 import com.eternamente.app.ui.theme.EternaMenteTheme
+import com.eternamente.app.ui.theme.LocalAccessibility
 
 /**
  * Pantalla completa del juego Memorama de Pares.
@@ -114,6 +118,22 @@ fun MemoryMatchScreen(
         }
     }
 
+    // ── Key de fase: estable durante Playing para evitar re-animación en cada tick ──
+    // BUG CORREGIDO: GameState.Playing(timeLeft=T) → Playing(timeLeft=T-1) cada segundo
+    // causaba que AnimatedContent disparara fadeIn+fadeOut completo cada segundo (flickering).
+    // La solución es usar un Int estable que NO cambia con timeLeft ni progress.
+    val gamePhase: Int = remember(gameState) {
+        when (gameState) {
+            GameState.Idle         -> 0
+            GameState.Instructions -> 1
+            is GameState.Countdown -> 2   // cambia 3→2→1 pero esos son estados diferentes (no Playing)
+            is GameState.Playing   -> 3   // ESTABLE — no incluye timeLeft
+            GameState.Paused       -> 4
+            is GameState.Completed -> 5
+            else                   -> -1
+        }
+    }
+
     // ── Renderizado según estado ──────────────────────────────────────────────
     Surface(
         modifier = Modifier
@@ -122,30 +142,29 @@ fun MemoryMatchScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         AnimatedContent(
-            targetState  = gameState,
+            targetState  = gamePhase,                                           // usa Int estable, no gameState completo
             transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(250)) },
-            label        = "memory_match_state"
-        ) { state ->
-            when (state) {
-                GameState.Idle -> MemoryMatchLoading()
+            label        = "memory_match_phase"
+        ) { phase ->
+            when (phase) {
+                0 -> MemoryMatchLoading()
 
-                GameState.Instructions ->
-                    MemoryMatchInstructions(
-                        config      = config,
-                        onStart     = { viewModel.startCountdown() },
-                        onBack      = onNavigateBack
+                1 -> MemoryMatchInstructions(
+                        config  = config,
+                        onStart = { viewModel.startCountdown() },
+                        onBack  = onNavigateBack
                     )
 
-                is GameState.Countdown ->
-                    MemoryMatchCountdown(seconds = state.seconds)
+                2 -> MemoryMatchCountdown(
+                        seconds = (gameState as? GameState.Countdown)?.seconds ?: 3
+                    )
 
-                is GameState.Playing ->
-                    MemoryMatchPlayArea(
-                        cards       = cards,
-                        score       = score,
-                        config      = config,
-                        timeLeft    = state.timeLeft,
-                        onCardTap   = { idx ->
+                3 -> MemoryMatchPlayArea(
+                        cards     = cards,
+                        score     = score,
+                        config    = config,
+                        timeLeft  = (gameState as? GameState.Playing)?.timeLeft,
+                        onCardTap = { idx ->
                             val feedback = viewModel.onCardTapped(idx)
                             if (feedback == InputFeedback.Correct) {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -153,10 +172,7 @@ fun MemoryMatchScreen(
                         }
                     )
 
-                GameState.Paused, is GameState.Completed ->
-                    Box(Modifier.fillMaxSize()) // El navigation event maneja Completed
-
-                else -> MemoryMatchLoading()
+                else -> Box(Modifier.fillMaxSize()) // Paused / Completed manejados por navigationEvent
             }
         }
     }
@@ -400,11 +416,15 @@ fun CardItem(
     modifier: Modifier = Modifier
 ) {
     val targetRotation = if (card.isFaceUp || card.isMatched) 180f else 0f
+    val reducedMotion  = LocalAccessibility.current.reducedMotion
 
     val rotation by animateFloatAsState(
         targetValue   = targetRotation,
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-        label         = "card_flip_${card.id}"
+        animationSpec = tween(
+            durationMillis = if (reducedMotion) 0 else 400,
+            easing         = FastOutSlowInEasing
+        ),
+        label = "card_flip_${card.id}"
     )
 
     val accessDesc = when {
@@ -417,8 +437,8 @@ fun CardItem(
         modifier         = modifier
             .size(cardSize)
             .clip(RoundedCornerShape(10.dp))
-            .clickable(enabled = card.isInteractable, onClick = onClick)
-            .semantics { contentDescription = accessDesc },
+            .clickable(enabled = card.isInteractable, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = accessDesc; role = Role.Button },
         contentAlignment = Alignment.Center
     ) {
         // ── Dorso (visible cuando rotation in [0, 90°]) ───────────────────────
