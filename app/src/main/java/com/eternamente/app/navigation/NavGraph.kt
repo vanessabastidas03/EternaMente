@@ -12,7 +12,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -40,6 +42,8 @@ import com.eternamente.app.presentation.profile.SettingsScreen
 import com.eternamente.app.presentation.reports.AlertDetailScreen
 import com.eternamente.app.presentation.reports.MonthlyReportScreen
 import com.eternamente.app.presentation.reports.PdfExportScreen
+import com.eternamente.app.presentation.reports.ReportState
+import com.eternamente.app.presentation.reports.ReportViewModel
 import com.eternamente.app.presentation.reports.WeeklyReportScreen
 
 // ── Duración de animaciones ──────────────────────────────────────────────────
@@ -377,9 +381,18 @@ fun NavGraph(
             }
 
             composable(Screen.PdfExport.route) {
+                // Share ReportViewModel state from WeeklyReport's back stack entry
+                val weeklyEntry = remember(navController) {
+                    runCatching { navController.getBackStackEntry(Screen.WeeklyReport.route) }.getOrNull()
+                }
+                val sharedReportVm: ReportViewModel? = weeklyEntry?.let {
+                    androidx.hilt.navigation.compose.hiltViewModel(it)
+                }
+                val reportState = sharedReportVm?.state?.collectAsState()?.value ?: ReportState()
                 PdfExportScreen(
                     innerPadding   = innerPadding,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    reportState    = reportState
                 )
             }
 
