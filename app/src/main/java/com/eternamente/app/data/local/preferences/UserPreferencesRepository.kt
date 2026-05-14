@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
@@ -37,13 +38,17 @@ class UserPreferencesRepository @Inject constructor(
 ) {
 
     companion object {
-        val KEY_FONT_SCALE            = floatPreferencesKey("font_scale")
-        val KEY_HIGH_CONTRAST         = booleanPreferencesKey("high_contrast")
-        val KEY_HAPTIC_FEEDBACK       = booleanPreferencesKey("haptic_feedback")
-        val KEY_DARK_MODE             = booleanPreferencesKey("dark_mode")
-        val KEY_ONBOARDING_COMPLETED  = booleanPreferencesKey("onboarding_completed")
-        val KEY_CURRENT_USER_ID       = stringPreferencesKey("current_user_id")
-        val KEY_IS_LOGGED_IN          = booleanPreferencesKey("is_logged_in")
+        val KEY_FONT_SCALE             = floatPreferencesKey("font_scale")
+        val KEY_HIGH_CONTRAST          = booleanPreferencesKey("high_contrast")
+        val KEY_HAPTIC_FEEDBACK        = booleanPreferencesKey("haptic_feedback")
+        val KEY_DARK_MODE              = booleanPreferencesKey("dark_mode")
+        val KEY_ONBOARDING_COMPLETED   = booleanPreferencesKey("onboarding_completed")
+        val KEY_CURRENT_USER_ID        = stringPreferencesKey("current_user_id")
+        val KEY_IS_LOGGED_IN           = booleanPreferencesKey("is_logged_in")
+        val KEY_NOTIFICATIONS_ENABLED  = booleanPreferencesKey("notifications_enabled")
+        val KEY_NOTIFICATION_HOUR      = intPreferencesKey("notification_hour")
+        val KEY_NOTIFICATION_MINUTE    = intPreferencesKey("notification_minute")
+        val KEY_NOTIFICATION_USER_NAME = stringPreferencesKey("notification_user_name")
     }
 
     /** Flujo de preferencias actuales; emite al iniciarse y en cada cambio. */
@@ -59,8 +64,12 @@ class UserPreferencesRepository @Inject constructor(
                 hapticFeedback      = prefs[KEY_HAPTIC_FEEDBACK]      ?: true,
                 darkMode            = prefs[KEY_DARK_MODE]            ?: false,
                 onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
-                currentUserId       = prefs[KEY_CURRENT_USER_ID],
-                isLoggedIn          = prefs[KEY_IS_LOGGED_IN]          ?: false
+                currentUserId          = prefs[KEY_CURRENT_USER_ID],
+                isLoggedIn             = prefs[KEY_IS_LOGGED_IN]            ?: false,
+                notificationsEnabled   = prefs[KEY_NOTIFICATIONS_ENABLED]   ?: true,
+                notificationHour       = prefs[KEY_NOTIFICATION_HOUR]       ?: 9,
+                notificationMinute     = prefs[KEY_NOTIFICATION_MINUTE]     ?: 0,
+                notificationUserName   = prefs[KEY_NOTIFICATION_USER_NAME]  ?: "amigo"
             )
         }
 
@@ -157,5 +166,20 @@ class UserPreferencesRepository @Inject constructor(
         context.userPrefsDataStore.edit { prefs ->
             prefs[KEY_IS_LOGGED_IN] = loggedIn
         }
+    }
+
+    suspend fun updateNotificationsEnabled(enabled: Boolean) {
+        context.userPrefsDataStore.edit { it[KEY_NOTIFICATIONS_ENABLED] = enabled }
+    }
+
+    suspend fun updateNotificationTime(hour: Int, minute: Int) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[KEY_NOTIFICATION_HOUR]   = hour
+            prefs[KEY_NOTIFICATION_MINUTE] = minute
+        }
+    }
+
+    suspend fun updateNotificationUserName(name: String) {
+        context.userPrefsDataStore.edit { it[KEY_NOTIFICATION_USER_NAME] = name }
     }
 }

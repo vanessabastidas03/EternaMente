@@ -2,6 +2,9 @@ package com.eternamente.app.presentation.profile
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,6 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberTimePickerState
 import com.eternamente.app.ui.theme.EternaMenteTheme
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
@@ -34,12 +40,10 @@ fun SettingsScreen(
     val state     by viewModel.state.collectAsState()
     val loggingOut by viewModel.loggingOut.collectAsState()
 
-    // Collect one-shot logout completion → trigger navigation
-    LaunchedEffect(Unit) {
-        viewModel.logoutComplete.collect { onLogout() }
-    }
+    LaunchedEffect(Unit) { viewModel.logoutComplete.collect { onLogout() } }
 
-    var showLogoutDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog  by remember { mutableStateOf(false) }
+    var showTimePicker    by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.padding(innerPadding),
@@ -104,6 +108,79 @@ fun SettingsScreen(
                     description = "Tamaño de texto y más opciones",
                     onClick     = onNavigateToAccessibility
                 )
+            }
+
+            // ── Notificaciones ────────────────────────────────────────────────
+            SettingsSection(title = "Notificaciones") {
+                SettingsToggleRow(
+                    icon             = Icons.Filled.NotificationsActive,
+                    label            = "Recordatorio diario",
+                    description      = "Te avisamos cuando es hora de tu sesión",
+                    checked          = state.notificationsEnabled,
+                    onCheckedChange  = viewModel::toggleNotifications
+                )
+                if (state.notificationsEnabled) {
+                    SettingsNavRow(
+                        icon        = Icons.Filled.Schedule,
+                        label       = "Hora del recordatorio",
+                        description = "%02d:%02d".format(state.notificationHour, state.notificationMinute),
+                        onClick     = { showTimePicker = true }
+                    )
+                }
+                if (state.notificationsEnabled) {
+                    // Test button — fires notification immediately, no alarm needed
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(Icons.Filled.NotificationsActive, null,
+                             tint = MaterialTheme.colorScheme.primary,
+                             modifier = Modifier.size(20.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Probar notificación",
+                                 style = MaterialTheme.typography.bodyMedium.copy(
+                                     fontWeight = FontWeight.Medium))
+                            Text("Envía una notificación de prueba ahora mismo",
+                                 style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = viewModel::sendTestNotification) {
+                            Text("Enviar")
+                        }
+                    }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color    = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+                if (!state.canScheduleExactAlarms) {
+                    // Guide user to grant SCHEDULE_EXACT_ALARM on Android 12+
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(Icons.Filled.Info, null,
+                             tint = MaterialTheme.colorScheme.tertiary,
+                             modifier = Modifier.size(20.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Alarmas exactas desactivadas",
+                                 style = MaterialTheme.typography.bodyMedium.copy(
+                                     fontWeight = FontWeight.Medium))
+                            Text("El recordatorio puede llegar unos minutos tarde",
+                                 style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = viewModel::openExactAlarmSettings) {
+                            Text("Activar")
+                        }
+                    }
+                }
             }
 
             // ── Cuenta ────────────────────────────────────────────────────────
@@ -176,7 +253,20 @@ fun SettingsScreen(
         }
     }
 
-    // ── Confirmation dialog ───────────────────────────────────────────────────
+    // ── Time picker dialog ────────────────────────────────────────────────────
+    if (showTimePicker) {
+        NotificationTimePickerDialog(
+            initialHour   = state.notificationHour,
+            initialMinute = state.notificationMinute,
+            onDismiss     = { showTimePicker = false },
+            onConfirm     = { h, m ->
+                viewModel.updateNotificationTime(h, m)
+                showTimePicker = false
+            }
+        )
+    }
+
+    // ── Logout confirmation dialog ────────────────────────────────────────────
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -301,6 +391,43 @@ private fun SettingsNavRow(
             Icon(Icons.Filled.ChevronRight, contentDescription = "Ir a $label", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+// ── TimePicker dialog ─────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationTimePickerDialog(
+    initialHour:   Int,
+    initialMinute: Int,
+    onDismiss:     () -> Unit,
+    onConfirm:     (hour: Int, minute: Int) -> Unit
+) {
+    val state = rememberTimePickerState(
+        initialHour   = initialHour,
+        initialMinute = initialMinute,
+        is24Hour      = true
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Hora del recordatorio",
+                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+        },
+        text = {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                TimePicker(state = state)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour, state.minute) }) {
+                Text("Aceptar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
 }
 
 // ── Previews ──────────────────────────────────────────────────────────────────
