@@ -49,6 +49,8 @@ class UserPreferencesRepository @Inject constructor(
         val KEY_NOTIFICATION_HOUR      = intPreferencesKey("notification_hour")
         val KEY_NOTIFICATION_MINUTE    = intPreferencesKey("notification_minute")
         val KEY_NOTIFICATION_USER_NAME = stringPreferencesKey("notification_user_name")
+        val KEY_REDUCED_MOTION         = booleanPreferencesKey("reduced_motion")
+        val KEY_TALKBACK_MODE          = booleanPreferencesKey("talkback_mode")
     }
 
     /** Flujo de preferencias actuales; emite al iniciarse y en cada cambio. */
@@ -69,7 +71,9 @@ class UserPreferencesRepository @Inject constructor(
                 notificationsEnabled   = prefs[KEY_NOTIFICATIONS_ENABLED]   ?: true,
                 notificationHour       = prefs[KEY_NOTIFICATION_HOUR]       ?: 9,
                 notificationMinute     = prefs[KEY_NOTIFICATION_MINUTE]     ?: 0,
-                notificationUserName   = prefs[KEY_NOTIFICATION_USER_NAME]  ?: "amigo"
+                notificationUserName   = prefs[KEY_NOTIFICATION_USER_NAME]  ?: "amigo",
+                reducedMotion          = prefs[KEY_REDUCED_MOTION]          ?: false,
+                talkBackMode           = prefs[KEY_TALKBACK_MODE]           ?: false
             )
         }
 
@@ -181,5 +185,13 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun updateNotificationUserName(name: String) {
         context.userPrefsDataStore.edit { it[KEY_NOTIFICATION_USER_NAME] = name }
+    }
+
+    suspend fun updateReducedMotion(enabled: Boolean) {
+        context.userPrefsDataStore.edit { it[KEY_REDUCED_MOTION] = enabled }
+    }
+
+    suspend fun updateTalkBackMode(enabled: Boolean) {
+        context.userPrefsDataStore.edit { it[KEY_TALKBACK_MODE] = enabled }
     }
 }

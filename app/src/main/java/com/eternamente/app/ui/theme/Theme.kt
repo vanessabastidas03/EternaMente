@@ -2,11 +2,14 @@ package com.eternamente.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.sp
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Esquema NORMAL — Light
@@ -171,6 +174,35 @@ data class AccessibilityConfig(
 
 val LocalAccessibility = staticCompositionLocalOf { AccessibilityConfig() }
 
+/**
+ * Factor de escala tipográfica definido por el usuario en el onboarding.
+ * Multiplica los tamaños de la tipografía de MaterialTheme.
+ * Valores: 0.85 (pequeño), 1.0 (normal), 1.15 (grande), 1.30 (muy grande).
+ */
+val LocalAppFontScale = compositionLocalOf { 1f }
+
+// Aplica el factor de escala a todos los niveles de la Typography de Material3
+private fun Typography.scaled(factor: Float): Typography {
+    if (factor == 1f) return this
+    return Typography(
+        displayLarge   = displayLarge.copy(fontSize   = (displayLarge.fontSize.value   * factor).sp),
+        displayMedium  = displayMedium.copy(fontSize  = (displayMedium.fontSize.value  * factor).sp),
+        displaySmall   = displaySmall.copy(fontSize   = (displaySmall.fontSize.value   * factor).sp),
+        headlineLarge  = headlineLarge.copy(fontSize  = (headlineLarge.fontSize.value  * factor).sp),
+        headlineMedium = headlineMedium.copy(fontSize = (headlineMedium.fontSize.value * factor).sp),
+        headlineSmall  = headlineSmall.copy(fontSize  = (headlineSmall.fontSize.value  * factor).sp),
+        titleLarge     = titleLarge.copy(fontSize     = (titleLarge.fontSize.value     * factor).sp),
+        titleMedium    = titleMedium.copy(fontSize    = (titleMedium.fontSize.value    * factor).sp),
+        titleSmall     = titleSmall.copy(fontSize     = (titleSmall.fontSize.value     * factor).sp),
+        bodyLarge      = bodyLarge.copy(fontSize      = (bodyLarge.fontSize.value      * factor).sp),
+        bodyMedium     = bodyMedium.copy(fontSize     = (bodyMedium.fontSize.value     * factor).sp),
+        bodySmall      = bodySmall.copy(fontSize      = (bodySmall.fontSize.value      * factor).sp),
+        labelLarge     = labelLarge.copy(fontSize     = (labelLarge.fontSize.value     * factor).sp),
+        labelMedium    = labelMedium.copy(fontSize    = (labelMedium.fontSize.value    * factor).sp),
+        labelSmall     = labelSmall.copy(fontSize     = (labelSmall.fontSize.value     * factor).sp)
+    )
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Tema principal
 // ══════════════════════════════════════════════════════════════════════════════
@@ -203,8 +235,9 @@ val LocalAccessibility = staticCompositionLocalOf { AccessibilityConfig() }
  */
 @Composable
 fun EternaMenteTheme(
-    darkTheme: Boolean            = isSystemInDarkTheme(),
-    highContrast: Boolean         = false,
+    darkTheme: Boolean                       = isSystemInDarkTheme(),
+    highContrast: Boolean                    = false,
+    fontScale: Float                         = 1f,
     accessibilityConfig: AccessibilityConfig = AccessibilityConfig(),
     content: @Composable () -> Unit
 ) {
@@ -215,10 +248,13 @@ fun EternaMenteTheme(
         else                      -> LightColorScheme
     }
 
-    CompositionLocalProvider(LocalAccessibility provides accessibilityConfig) {
+    CompositionLocalProvider(
+        LocalAccessibility  provides accessibilityConfig,
+        LocalAppFontScale   provides fontScale
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography  = EternaTypography,
+            typography  = EternaTypography.scaled(fontScale),
             shapes      = EternaShapes,
             content     = content
         )

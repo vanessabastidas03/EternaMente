@@ -59,8 +59,10 @@ class MainActivity : ComponentActivity() {
             EternaMenteTheme(
                 darkTheme           = prefs.darkMode,
                 highContrast        = prefs.highContrast,
+                fontScale           = prefs.fontScale,
                 accessibilityConfig = AccessibilityConfig(
-                    hapticFeedback = prefs.hapticFeedback
+                    hapticFeedback = prefs.hapticFeedback,
+                    reducedMotion  = prefs.reducedMotion
                 )
             ) {
                 val navController = rememberNavController()

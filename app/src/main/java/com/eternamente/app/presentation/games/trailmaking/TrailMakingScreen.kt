@@ -182,7 +182,7 @@ private fun TrailPlayArea(uiState: TrailMakingUiState, onProximity: (Offset) -> 
                         .semantics { contentDescription = "Nodo ${node.label}" },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(node.label, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    Text(node.label, fontSize = 16.sp, fontWeight = FontWeight.Bold,
                         color = if (node.isConnected || node.isTarget) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                 }
             }

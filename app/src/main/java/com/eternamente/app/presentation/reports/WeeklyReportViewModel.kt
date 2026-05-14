@@ -2,9 +2,11 @@ package com.eternamente.app.presentation.reports
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eternamente.app.core.notifications.BadgeNotificationHelper
 import com.eternamente.app.data.local.preferences.UserPreferencesRepository
-import com.eternamente.app.domain.model.AlertLevel
+import com.eternamente.app.domain.model.Badge
 import com.eternamente.app.domain.model.MlPrediction
+import com.eternamente.app.domain.repository.GamificationRepository
 import com.eternamente.app.domain.repository.MlRepository
 import com.eternamente.app.domain.usecase.AnalyzeCognitivePatternUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -29,9 +32,11 @@ data class WeeklyReportState(
 
 @HiltViewModel
 class WeeklyReportViewModel @Inject constructor(
-    private val analyzeUseCase:     AnalyzeCognitivePatternUseCase,
-    private val mlRepository:       MlRepository,
-    private val userPreferences:    UserPreferencesRepository
+    private val analyzeUseCase:          AnalyzeCognitivePatternUseCase,
+    private val mlRepository:            MlRepository,
+    private val userPreferences:         UserPreferencesRepository,
+    private val gamificationRepository:  GamificationRepository,
+    private val badgeNotificationHelper: BadgeNotificationHelper
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WeeklyReportState())
@@ -59,6 +64,7 @@ class WeeklyReportViewModel @Inject constructor(
                                     errorMessage = null
                                 )
                             }
+                            tryUnlockFirstReport(userId)
                         }
                         else -> {
                             val msg = (result as? com.eternamente.app.core.Result.Error)
@@ -93,6 +99,17 @@ class WeeklyReportViewModel @Inject constructor(
                         lastRunLabel = prediction?.let { p -> formatDate(p.predictionDate) }
                     )
                 }
+            }
+        }
+    }
+
+    private suspend fun tryUnlockFirstReport(userId: String) {
+        val profileResult = gamificationRepository.getProfile(userId)
+        if (profileResult is com.eternamente.app.core.Result.Success) {
+            if (!profileResult.data.hasBadge(Badge.FIRST_REPORT)) {
+                gamificationRepository.unlockBadge(userId, Badge.FIRST_REPORT)
+                badgeNotificationHelper.showBadgeUnlocked(Badge.FIRST_REPORT)
+                Timber.i("WeeklyReportVM: FIRST_REPORT badge unlocked for user=$userId")
             }
         }
     }

@@ -13,7 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -133,8 +135,8 @@ private fun RowScope.ImageGrid(grid: List<List<String>>, foundPos: Set<Pair<Int,
                             .clip(RoundedCornerShape(4.dp))
                             .background(if (isFound) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
                             .border(if (isFound) 2.dp else 0.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(4.dp))
-                            .then(if (isRight && !isFound) Modifier.clickable { onTap(row, col) } else Modifier)
-                            .semantics { contentDescription = "Celda $emoji ${if (isFound) "encontrada" else ""}" },
+                            .then(if (isRight && !isFound) Modifier.clickable(role = Role.Button) { onTap(row, col) } else Modifier)
+                            .semantics { contentDescription = "Celda $emoji ${if (isFound) "encontrada" else ""}"; role = Role.Button },
                         contentAlignment = Alignment.Center
                     ) { Text(emoji, fontSize = 18.sp) }
                 }

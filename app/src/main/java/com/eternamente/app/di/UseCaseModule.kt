@@ -92,9 +92,10 @@ object UseCaseModule {
     fun provideAnalyzeCognitivePatternUseCase(
         cognitiveAnalyzer:    CognitiveAnalyzer,
         gameResultRepository: GameResultRepository,
-        mlRepository:         MlRepository
+        mlRepository:         MlRepository,
+        sessionRepository:    SessionRepository
     ): AnalyzeCognitivePatternUseCase =
-        AnalyzeCognitivePatternUseCase(cognitiveAnalyzer, gameResultRepository, mlRepository)
+        AnalyzeCognitivePatternUseCase(cognitiveAnalyzer, gameResultRepository, mlRepository, sessionRepository)
 
     /**
      * Provides [GenerateReportUseCase] — aggregates user profile, recent results,

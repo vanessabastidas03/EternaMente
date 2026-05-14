@@ -248,7 +248,7 @@ fun GameCard(entry: CatalogGameEntry, onClick: () -> Unit) {
             }
             // Indicador de sesión de hoy
             if (isToday) {
-                Text("⭐", fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+                Text("⭐", fontSize = 14.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
             }
 
             Column(

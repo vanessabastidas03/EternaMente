@@ -3,7 +3,12 @@ package com.eternamente.app.core.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.eternamente.app.core.Result
+import com.eternamente.app.data.local.preferences.UserPreferencesRepository
+import com.eternamente.app.domain.repository.GamificationRepository
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -17,8 +22,10 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class DailyReminderReceiver : BroadcastReceiver() {
 
-    @Inject lateinit var notificationManager: EternaNotificationManager
-    @Inject lateinit var scheduler:           NotificationScheduler
+    @Inject lateinit var notificationManager:    EternaNotificationManager
+    @Inject lateinit var scheduler:              NotificationScheduler
+    @Inject lateinit var preferencesRepository:  UserPreferencesRepository
+    @Inject lateinit var gamificationRepository: GamificationRepository
 
     companion object {
         const val EXTRA_USER_NAME = "user_name"
@@ -35,7 +42,20 @@ class DailyReminderReceiver : BroadcastReceiver() {
         Timber.i("DailyReminderReceiver   userName='$userName'  hour=$hour  minute=$minute")
         Timber.i("DailyReminderReceiver   currentTimeMs=${System.currentTimeMillis()}")
 
-        notificationManager.showDailyReminder(userName = userName, currentStreak = 0)
+        // Fetch real streak — BroadcastReceiver runs on main thread; use runBlocking
+        // (acceptable here: receiver is short-lived, I/O is local Room query)
+        val streak = runBlocking {
+            val userId = preferencesRepository.preferences.first().currentUserId
+            if (userId != null) {
+                when (val r = gamificationRepository.getProfile(userId)) {
+                    is Result.Success -> r.data.currentStreak
+                    is Result.Error   -> 0
+                }
+            } else 0
+        }
+        Timber.i("DailyReminderReceiver   streak=$streak")
+
+        notificationManager.showDailyReminder(userName = userName, currentStreak = streak)
 
         // Re-schedule for tomorrow (exact alarms don't repeat automatically)
         Timber.i("DailyReminderReceiver   re-scheduling for next day...")

@@ -129,11 +129,11 @@ val EternaTypography = Typography(
         letterSpacing = 0.1.sp
     ),
 
-    // ── Body — mínimo 16 sp según guía de accesibilidad ──────────────────────
+    // ── Body — mínimo 16 sp según guía de accesibilidad WCAG para adultos mayores ──
     bodyLarge = TextStyle(
         fontFamily   = NunitoFamily,
         fontWeight   = FontWeight.Normal,
-        fontSize     = 18.sp,   // Aumentado respecto al estándar M3 (16 sp)
+        fontSize     = 18.sp,
         lineHeight   = 28.sp,
         letterSpacing = 0.5.sp
     ),
@@ -147,31 +147,31 @@ val EternaTypography = Typography(
     bodySmall = TextStyle(
         fontFamily   = NunitoFamily,
         fontWeight   = FontWeight.Normal,
-        fontSize     = 14.sp,   // Mínimo absoluto en la app
-        lineHeight   = 20.sp,
+        fontSize     = 16.sp,   // Elevado de 14 → 16 sp (WCAG mínimo para adultos mayores)
+        lineHeight   = 22.sp,
         letterSpacing = 0.4.sp
     ),
 
-    // ── Label ────────────────────────────────────────────────────────────────
+    // ── Label — mínimo 16 sp ─────────────────────────────────────────────────
     labelLarge = TextStyle(
         fontFamily   = NunitoFamily,
         fontWeight   = FontWeight.Medium,
-        fontSize     = 14.sp,
-        lineHeight   = 20.sp,
+        fontSize     = 16.sp,   // 14 → 16 sp
+        lineHeight   = 22.sp,
         letterSpacing = 0.1.sp
     ),
     labelMedium = TextStyle(
         fontFamily   = NunitoFamily,
         fontWeight   = FontWeight.Medium,
-        fontSize     = 14.sp,   // Respetamos mínimo — no bajamos a 12 sp
-        lineHeight   = 16.sp,
+        fontSize     = 16.sp,   // 14 → 16 sp
+        lineHeight   = 20.sp,
         letterSpacing = 0.5.sp
     ),
     labelSmall = TextStyle(
         fontFamily   = NunitoFamily,
         fontWeight   = FontWeight.Medium,
-        fontSize     = 14.sp,   // Mínimo absoluto — nunca menos de 14 sp
-        lineHeight   = 16.sp,
+        fontSize     = 16.sp,   // 14 → 16 sp (mínimo absoluto WCAG adultos mayores)
+        lineHeight   = 20.sp,
         letterSpacing = 0.5.sp
     )
 )

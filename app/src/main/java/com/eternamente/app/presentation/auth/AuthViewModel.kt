@@ -1,9 +1,12 @@
 package com.eternamente.app.presentation.auth
 
+import android.app.Application
 import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eternamente.app.core.notifications.NotificationScheduler
+import com.eternamente.app.core.worker.scheduleWeeklyCognitiveAnalysis
 import com.eternamente.app.data.local.preferences.UserPreferencesRepository
 import com.eternamente.app.domain.model.AuthException
 import com.eternamente.app.domain.repository.UserRepository
@@ -14,8 +17,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -27,10 +32,11 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val registerUserUseCase: RegisterUserUseCase,
-    private val loginUserUseCase: LoginUserUseCase,
-    private val userRepository: UserRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val registerUserUseCase:       RegisterUserUseCase,
+    private val loginUserUseCase:          LoginUserUseCase,
+    private val userRepository:            UserRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val notificationScheduler:     NotificationScheduler
 ) : ViewModel() {
 
     // ── Register ──────────────────────────────────────────────────────────────
@@ -114,8 +120,10 @@ class AuthViewModel @Inject constructor(
         _loginState.update { it.copy(isLoading = true, globalError = null) }
         viewModelScope.launch {
             when (val result = loginUserUseCase(s.email, s.pin)) {
-                is com.eternamente.app.core.Result.Success ->
+                is com.eternamente.app.core.Result.Success -> {
+                    onLoginSuccess()
                     _loginState.update { it.copy(isLoading = false, isSuccess = true) }
+                }
                 is com.eternamente.app.core.Result.Error -> {
                     val (error, remaining, locked, minutes) = parseAuthError(result.exception)
                     _loginState.update {
@@ -125,7 +133,7 @@ class AuthViewModel @Inject constructor(
                             attemptsRemaining  = remaining,
                             isLocked           = locked,
                             minutesUntilUnlock = minutes,
-                            pin                = ""   // Limpiar PIN tras error
+                            pin                = ""
                         )
                     }
                 }
@@ -141,6 +149,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             val userId = userPreferencesRepository.getCurrentUserId()
             if (userId != null) {
+                onLoginSuccess()
                 _loginState.update { it.copy(isSuccess = true) }
             } else {
                 _loginState.update {
@@ -155,6 +164,35 @@ class AuthViewModel @Inject constructor(
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private suspend fun onLoginSuccess() {
+        val userId = userPreferencesRepository.getCurrentUserId() ?: return
+        val prefs  = userPreferencesRepository.preferences.first()
+
+        // Schedule daily reminder alarm
+        if (prefs.notificationsEnabled) {
+            val firstName = resolveFirstName(userId)
+            notificationScheduler.scheduleDaily(
+                hour     = prefs.notificationHour,
+                minute   = prefs.notificationMinute,
+                userName = firstName
+            )
+            Timber.i("AuthVM: scheduled daily alarm at %02d:%02d for user='$firstName'".format(
+                prefs.notificationHour, prefs.notificationMinute
+            ))
+        }
+
+        // Schedule weekly cognitive analysis via WorkManager
+        (appContext.applicationContext as? Application)
+            ?.scheduleWeeklyCognitiveAnalysis(userId)
+    }
+
+    private suspend fun resolveFirstName(userId: String): String =
+        when (val r = userRepository.getUserById(userId)) {
+            is com.eternamente.app.core.Result.Success ->
+                r.data.name.split(" ").firstOrNull() ?: "amigo"
+            is com.eternamente.app.core.Result.Error -> "amigo"
+        }
 
     private fun checkBiometricAvailability() {
         val manager = BiometricManager.from(appContext)

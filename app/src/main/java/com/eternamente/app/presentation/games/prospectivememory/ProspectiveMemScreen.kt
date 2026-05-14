@@ -13,7 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -105,8 +107,8 @@ private fun PMPlayArea(ui: ProspectiveUiState, onTapCircle: () -> Unit) {
                 .clip(CircleShape)
                 .background(if (ui.circleActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant)
                 .border(3.dp, MaterialTheme.colorScheme.secondary, CircleShape)
-                .clickable { onTapCircle() }
-                .semantics { contentDescription = "Círculo verde. Pulsa cuando veas ${ui.targetEmoji}" },
+                .clickable(role = Role.Button) { onTapCircle() }
+                .semantics { contentDescription = "Círculo verde. Pulsa cuando veas ${ui.targetEmoji}"; role = Role.Button },
             contentAlignment = Alignment.Center
         ) {
             Text(if (ui.circleActive) "✓" else "", fontSize = 36.sp, color = MaterialTheme.colorScheme.onSecondary)
