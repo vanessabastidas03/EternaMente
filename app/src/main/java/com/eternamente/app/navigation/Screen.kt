@@ -117,6 +117,9 @@ sealed class Screen(val route: String) {
     /** Reporte mensual con comparativa de baseline. */
     object MonthlyReport : Screen("monthly_report")
 
+    /** Exportación del reporte cognitivo a PDF. */
+    object PdfExport : Screen("pdf_export")
+
     /**
      * Detalle ampliado de una alerta cognitiva específica.
      *

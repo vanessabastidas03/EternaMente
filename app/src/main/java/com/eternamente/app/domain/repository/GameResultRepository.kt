@@ -116,4 +116,35 @@ interface GameResultRepository {
 
     /** Best (lowest) reaction time in flash_color; 0.0 if never played. */
     suspend fun flashColorMinRtMs(userId: String): Result<Float>
+
+    /**
+     * Average [GameResult.scoreNormalized] per [CognitiveDomain] for sessions whose
+     * start date falls within [fromMs]..[toMs]. Used by the reports module to compare
+     * the current week against the previous week.
+     *
+     * @param userId  UUID of the target user.
+     * @param fromMs  Start of range in epoch milliseconds (inclusive).
+     * @param toMs    End of range in epoch milliseconds (inclusive).
+     * @return [Result.Success] with a map of [CognitiveDomain] to average score, or
+     *   [Result.Error] on query failure.
+     */
+    suspend fun getAveragesByDomainInRange(
+        userId: String,
+        fromMs: Long,
+        toMs: Long
+    ): Result<Map<CognitiveDomain, Float>>
+
+    /**
+     * Overall average [GameResult.scoreNormalized] across all domains for sessions within
+     * [fromMs]..[toMs]. Returns 0f when the user has no data for that period.
+     *
+     * Used to build the 8-week global trend line in the monthly report.
+     *
+     * @param userId  UUID of the target user.
+     * @param fromMs  Start of range in epoch milliseconds (inclusive).
+     * @param toMs    End of range in epoch milliseconds (inclusive).
+     * @return [Result.Success] with the overall average (0f when no data), or
+     *   [Result.Error] on query failure.
+     */
+    suspend fun getOverallAverageInRange(userId: String, fromMs: Long, toMs: Long): Result<Float>
 }

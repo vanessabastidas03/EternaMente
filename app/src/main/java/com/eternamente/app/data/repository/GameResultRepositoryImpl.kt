@@ -118,4 +118,23 @@ class GameResultRepositoryImpl @Inject constructor(
                     .associate { row -> CognitiveDomain.valueOf(row.domain) to row.avgScore }
             }
         }
+
+    override suspend fun getAveragesByDomainInRange(
+        userId: String,
+        fromMs: Long,
+        toMs: Long
+    ): Result<Map<CognitiveDomain, Float>> = withContext(Dispatchers.IO) {
+        safeCall {
+            gameResultDao.getAveragesByDomainInRange(userId, fromMs, toMs)
+                .associate { row -> CognitiveDomain.valueOf(row.domain) to row.avgScore }
+        }
+    }
+
+    override suspend fun getOverallAverageInRange(
+        userId: String,
+        fromMs: Long,
+        toMs: Long
+    ): Result<Float> = withContext(Dispatchers.IO) {
+        safeCall { gameResultDao.getOverallAverageInRange(userId, fromMs, toMs) }
+    }
 }

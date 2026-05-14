@@ -182,6 +182,37 @@ interface GameResultDao {
     """)
     suspend fun earliestScores(userId: String, limit: Int): List<Float>
 
-    /** Proyección usada por [getAveragesByDomainSince]. */
+    /**
+     * Average scoreNormalized per domain for sessions whose sessionDate falls within
+     * [fromMs]..[toMs] (both inclusive). Used for weekly/monthly domain comparisons.
+     */
+    @Query("""
+        SELECT gr.domain AS domain, AVG(gr.scoreNormalized) AS avgScore
+        FROM game_results gr
+        INNER JOIN cognitive_sessions cs ON gr.sessionId = cs.id
+        WHERE gr.userId = :userId
+          AND cs.sessionDate BETWEEN :fromMs AND :toMs
+        GROUP BY gr.domain
+    """)
+    suspend fun getAveragesByDomainInRange(
+        userId: String,
+        fromMs: Long,
+        toMs: Long
+    ): List<DomainAvgRow>
+
+    /**
+     * Overall average scoreNormalized across all domains for sessions whose sessionDate
+     * falls within [fromMs]..[toMs]. Returns 0.0 when no rows match.
+     */
+    @Query("""
+        SELECT COALESCE(AVG(gr.scoreNormalized), 0.0)
+        FROM game_results gr
+        INNER JOIN cognitive_sessions cs ON gr.sessionId = cs.id
+        WHERE gr.userId = :userId
+          AND cs.sessionDate BETWEEN :fromMs AND :toMs
+    """)
+    suspend fun getOverallAverageInRange(userId: String, fromMs: Long, toMs: Long): Float
+
+    /** Proyección usada por [getAveragesByDomainSince] y [getAveragesByDomainInRange]. */
     data class DomainAvgRow(val domain: String, val avgScore: Float)
 }
