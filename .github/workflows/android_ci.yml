@@ -32,6 +32,19 @@ jobs:
       - name: Dar permiso a gradlew
         run: chmod +x gradlew
 
+      - name: Crear google-services.json falso
+        run: |
+          mkdir -p app
+          echo '{
+            "project_info": {
+              "project_number": "123456789",
+              "project_id": "fake-project",
+              "storage_bucket": "fake-project.appspot.com"
+            },
+            "client": [],
+            "configuration_version": "1"
+          }' > app/google-services.json
+
       - name: Ejecutar Unit Tests
         run: ./gradlew testDebugUnitTest
 
