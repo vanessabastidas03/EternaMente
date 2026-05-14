@@ -64,6 +64,7 @@ class LoginUserUseCaseTest {
         coEvery { cryptoManager.verifyPin("123456", "salt_base64", "correct_hash") } returns true
         coEvery { authRepository.updateFailedAttempts(any(), any(), any()) } returns Result.Success(Unit)
         coEvery { userPrefsRepository.updateCurrentUserId(any()) } just Runs
+        coEvery { userPrefsRepository.updateIsLoggedIn(any()) } just Runs
     }
 
     // ── Login exitoso ─────────────────────────────────────────────────────────
