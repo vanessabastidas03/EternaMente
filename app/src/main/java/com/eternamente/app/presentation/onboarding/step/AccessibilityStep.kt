@@ -1,5 +1,7 @@
 package com.eternamente.app.presentation.onboarding.step
 
+import android.Manifest
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,9 +11,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -32,6 +43,10 @@ import androidx.compose.ui.unit.sp
 import com.eternamente.app.presentation.component.EternaFullWidthButton
 import com.eternamente.app.presentation.onboarding.AccessibilityFormState
 import com.eternamente.app.presentation.onboarding.FontScale
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import kotlinx.coroutines.delay
 
 /**
@@ -54,6 +69,7 @@ import kotlinx.coroutines.delay
  * Al pulsar "¡Listo!" el ViewModel llama a [UserPreferencesRepository.savePreferences]
  * y luego a [UserRepository.registerUser] + [UserRepository.recordConsent].
  */
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AccessibilityStep(
     accessibilityForm: AccessibilityFormState,
@@ -68,6 +84,11 @@ fun AccessibilityStep(
 ) {
     val haptic       = LocalHapticFeedback.current
     val scrollState  = rememberScrollState()
+
+    // Notification permission — only needed on Android 13+ (API 33)
+    val notifPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
+    } else null
 
     // Limpiar error automáticamente después de 4 segundos
     LaunchedEffect(error) {
@@ -218,7 +239,12 @@ fun AccessibilityStep(
             }
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(24.dp))
+
+        // ── Notificaciones ────────────────────────────────────────────────────
+        NotificationPermissionCard(notifPermission)
+
+        Spacer(Modifier.height(24.dp))
 
         // ── Error (si existe) ─────────────────────────────────────────────────
         if (error != null) {
@@ -245,6 +271,64 @@ fun AccessibilityStep(
         )
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+// ── Notification permission card ──────────────────────────────────────────────
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+private fun NotificationPermissionCard(
+    permissionState: com.google.accompanist.permissions.PermissionState?
+) {
+    // On Android < 13 POST_NOTIFICATIONS is auto-granted — nothing to show
+    if (permissionState == null) return
+
+    val granted = permissionState.status.isGranted
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors   = CardDefaults.cardColors(
+            containerColor = if (granted)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            else
+                MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector        = if (granted) Icons.Filled.NotificationsActive
+                                     else         Icons.Filled.Notifications,
+                contentDescription = null,
+                tint               = if (granted) MaterialTheme.colorScheme.primary
+                                     else         MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier           = Modifier.size(28.dp)
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Recordatorios diarios",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    if (granted) "Recibirás un recordatorio diario para tu sesión ✓"
+                    else         "Activa las notificaciones para no olvidar tu sesión",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (!granted) {
+                Button(
+                    onClick = { permissionState.launchPermissionRequest() },
+                    colors  = ButtonDefaults.buttonColors()
+                ) {
+                    Text("Activar")
+                }
+            }
+        }
     }
 }
 

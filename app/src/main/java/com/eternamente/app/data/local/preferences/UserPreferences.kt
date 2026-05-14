@@ -23,5 +23,12 @@ data class UserPreferences(
      * Permite al Splash ir directamente a Dashboard sin pedir PIN.
      * Se pone a `false` en logout explícito.
      */
-    val isLoggedIn: Boolean          = false
+    val isLoggedIn: Boolean          = false,
+
+    // ── Notification preferences ──────────────────────────────────────────────
+    val notificationsEnabled: Boolean = true,
+    val notificationHour:     Int     = 9,
+    val notificationMinute:   Int     = 0,
+    /** First name shown in the daily reminder notification. */
+    val notificationUserName: String  = "amigo"
 )

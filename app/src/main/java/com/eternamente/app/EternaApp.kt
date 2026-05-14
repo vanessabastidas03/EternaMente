@@ -3,8 +3,7 @@ package com.eternamente.app
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.eternamente.app.core.notifications.BadgeNotificationHelper
-import com.eternamente.app.core.notifications.CognitiveAlertNotificationHelper
+import com.eternamente.app.core.notifications.EternaNotificationManager
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import javax.inject.Inject
@@ -22,9 +21,8 @@ import javax.inject.Inject
 @HiltAndroidApp
 class EternaApp : Application(), Configuration.Provider {
 
-    @Inject lateinit var badgeNotificationHelper: BadgeNotificationHelper
-    @Inject lateinit var cognitiveAlertHelper:    CognitiveAlertNotificationHelper
-    @Inject lateinit var workerFactory:           HiltWorkerFactory
+    @Inject lateinit var notificationManager: EternaNotificationManager
+    @Inject lateinit var workerFactory:       HiltWorkerFactory
 
     // WorkManager reads this on first getInstance() call to create the singleton.
     override val workManagerConfiguration: Configuration
@@ -35,8 +33,7 @@ class EternaApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         initLogging()
-        badgeNotificationHelper.createChannel()
-        cognitiveAlertHelper.createChannel()
+        notificationManager.createAllChannels()
     }
 
     private fun initLogging() {
