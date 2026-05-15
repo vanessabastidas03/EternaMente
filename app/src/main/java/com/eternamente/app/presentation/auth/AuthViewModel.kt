@@ -5,9 +5,13 @@ import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eternamente.app.core.Result
 import com.eternamente.app.core.notifications.NotificationScheduler
+import com.eternamente.app.core.onError
+import com.eternamente.app.core.onSuccess
 import com.eternamente.app.core.worker.scheduleWeeklyCognitiveAnalysis
 import com.eternamente.app.data.local.preferences.UserPreferencesRepository
+import com.eternamente.app.data.remote.FirebaseAuthManager
 import com.eternamente.app.domain.model.AuthException
 import com.eternamente.app.domain.repository.UserRepository
 import com.eternamente.app.domain.usecase.LoginUserUseCase
@@ -36,7 +40,8 @@ class AuthViewModel @Inject constructor(
     private val loginUserUseCase:          LoginUserUseCase,
     private val userRepository:            UserRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val notificationScheduler:     NotificationScheduler
+    private val notificationScheduler:     NotificationScheduler,
+    private val firebaseAuthManager:       FirebaseAuthManager
 ) : ViewModel() {
 
     // ── Register ──────────────────────────────────────────────────────────────
@@ -84,13 +89,33 @@ class AuthViewModel @Inject constructor(
         _registerState.update { it.copy(isLoading = true, globalError = null) }
         viewModelScope.launch {
             when (val result = registerUserUseCase(s.name, s.email, s.pin, s.confirmPin)) {
-                is com.eternamente.app.core.Result.Success ->
+                is Result.Success -> {
                     _registerState.update { it.copy(isLoading = false, isSuccess = true) }
-                is com.eternamente.app.core.Result.Error ->
+                    // Firebase es complementario al offline-first: se sincroniza en segundo plano.
+                    // Si no hay red, el usuario ya está registrado en Room y puede continuar.
+                    syncFirebaseRegister(s.email, s.pin)
+                }
+                is Result.Error ->
                     _registerState.update {
                         it.copy(isLoading = false, globalError = result.exception.message)
                     }
             }
+        }
+    }
+
+    /**
+     * Crea la cuenta Firebase en segundo plano tras el registro local exitoso.
+     * El fallo de Firebase NO bloquea el flujo — se registra con Timber para diagnóstico.
+     */
+    private fun syncFirebaseRegister(email: String, pin: String) {
+        viewModelScope.launch {
+            firebaseAuthManager.register(email, pin)
+                .onSuccess { user ->
+                    Timber.i("AuthVM: cuenta Firebase creada — uid=${user.uid}")
+                }
+                .onError { e ->
+                    Timber.w(e, "AuthVM: registro Firebase diferido (sin red o ya existe)")
+                }
         }
     }
 
@@ -120,11 +145,14 @@ class AuthViewModel @Inject constructor(
         _loginState.update { it.copy(isLoading = true, globalError = null) }
         viewModelScope.launch {
             when (val result = loginUserUseCase(s.email, s.pin)) {
-                is com.eternamente.app.core.Result.Success -> {
+                is Result.Success -> {
                     onLoginSuccess()
                     _loginState.update { it.copy(isLoading = false, isSuccess = true) }
+                    // Restaurar sesión Firebase en segundo plano.
+                    // Si la cuenta aún no existe en Firebase (usuario antiguo offline), intenta crearla.
+                    syncFirebaseLogin(s.email, s.pin)
                 }
-                is com.eternamente.app.core.Result.Error -> {
+                is Result.Error -> {
                     val (error, remaining, locked, minutes) = parseAuthError(result.exception)
                     _loginState.update {
                         it.copy(
@@ -138,6 +166,23 @@ class AuthViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Restaura o migra la sesión Firebase tras el login local exitoso.
+     * Si el usuario no tiene cuenta Firebase aún (registrado offline), la crea.
+     * El fallo de Firebase NO revierte el login local.
+     */
+    private fun syncFirebaseLogin(email: String, pin: String) {
+        viewModelScope.launch {
+            firebaseAuthManager.migrateLocalUserToFirebase(email, pin)
+                .onSuccess { user ->
+                    Timber.i("AuthVM: sesión Firebase activa — uid=${user.uid}")
+                }
+                .onError { e ->
+                    Timber.w(e, "AuthVM: sincronización Firebase diferida (sin red)")
+                }
         }
     }
 
@@ -189,9 +234,8 @@ class AuthViewModel @Inject constructor(
 
     private suspend fun resolveFirstName(userId: String): String =
         when (val r = userRepository.getUserById(userId)) {
-            is com.eternamente.app.core.Result.Success ->
-                r.data.name.split(" ").firstOrNull() ?: "amigo"
-            is com.eternamente.app.core.Result.Error -> "amigo"
+            is Result.Success -> r.data.name.split(" ").firstOrNull() ?: "amigo"
+            is Result.Error   -> "amigo"
         }
 
     private fun checkBiometricAvailability() {
