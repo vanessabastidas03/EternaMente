@@ -49,6 +49,21 @@
         </receiver>
 
         <!--
+            Firebase Cloud Messaging service.
+            - exported="false": solo Firebase puede iniciar este servicio.
+            - MESSAGING_EVENT: recibe tokens FCM y mensajes push.
+            Los canales de notificación son creados por EternaNotificationManager en
+            EternaApp.onCreate(), por lo que siempre existen antes de que llegue un push.
+        -->
+        <service
+            android:name=".core.notifications.EternaMenteMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!--
             FileProvider exposes PDF reports from internal storage (filesDir/reports/)
             via a content:// URI so Share intents can read them without WRITE_EXTERNAL_STORAGE.
         -->
