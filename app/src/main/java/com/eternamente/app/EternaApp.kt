@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.eternamente.app.core.notifications.EternaNotificationManager
+import com.eternamente.app.core.notifications.EternaMenteMessagingService
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import javax.inject.Inject
@@ -34,6 +35,8 @@ class EternaApp : Application(), Configuration.Provider {
         super.onCreate()
         initLogging()
         notificationManager.createAllChannels()
+        // Registrar token FCM actual en Logcat — filtrar con tag "EternaFCM_Token"
+        EternaMenteMessagingService.fetchAndLogToken()
     }
 
     private fun initLogging() {
