@@ -2,6 +2,7 @@ package com.eternamente.app.domain.usecase
 
 import com.eternamente.app.data.local.preferences.UserPreferencesRepository
 import com.eternamente.app.domain.repository.UserRepository
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -20,8 +21,10 @@ class LogoutUseCase @Inject constructor(
     private val userRepository: UserRepository
 ) {
     suspend operator fun invoke() {
+        Timber.i("Auth: cierre de sesión iniciado")
         userRepository.logout()
         userPreferencesRepository.updateIsLoggedIn(false)
         userPreferencesRepository.updateCurrentUserId(null)
+        Timber.i("Auth: sesión cerrada — datos locales preservados en Room")
     }
 }

@@ -8,6 +8,7 @@ import com.eternamente.app.domain.model.AuthException
 import com.eternamente.app.domain.model.User
 import com.eternamente.app.domain.repository.AuthRepository
 import com.eternamente.app.domain.repository.UserRepository
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -54,19 +55,28 @@ class LoginUserUseCase @Inject constructor(
      */
     suspend operator fun invoke(email: String, pin: String): Result<User> = safeCall {
         val trimmedEmail = email.lowercase().trim()
+        Timber.d("Auth: intento de login")
 
         // ── 1. Buscar usuario ─────────────────────────────────────────────────
         val user = userRepository.getUserByEmail(trimmedEmail).getOrThrow()
-            ?: throw AuthException.UserNotFound
+            ?: run {
+                Timber.w("Auth: login fallido — usuario no encontrado")
+                throw AuthException.UserNotFound
+            }
 
         // ── 2. Cargar credenciales ────────────────────────────────────────────
         val credentials = authRepository.getCredentialsByUserId(user.id).getOrThrow()
-            ?: throw AuthException.UserNotFound
+            ?: run {
+                Timber.w("Auth: login fallido — credenciales no encontradas")
+                throw AuthException.UserNotFound
+            }
 
         // ── 3. Verificar bloqueo ──────────────────────────────────────────────
         val now = System.currentTimeMillis()
         if (credentials.isLocked(now)) {
-            throw AuthException.AccountLocked(credentials.minutesRemainingLocked(now))
+            val minutes = credentials.minutesRemainingLocked(now)
+            Timber.w("Auth: login bloqueado — $minutes min restantes")
+            throw AuthException.AccountLocked(minutes)
         }
 
         // ── 4. Verificar PIN (comparación en tiempo constante) ────────────────
@@ -78,9 +88,12 @@ class LoginUserUseCase @Inject constructor(
             authRepository.updateFailedAttempts(user.id, newAttempts, newLockedUntil).getOrThrow()
 
             throw if (newLockedUntil != null) {
+                Timber.w("Auth: PIN incorrecto — cuenta bloqueada tras $MAX_FAILED_ATTEMPTS intentos")
                 AuthException.AccountLocked(30)
             } else {
-                AuthException.InvalidPin(MAX_FAILED_ATTEMPTS - newAttempts)
+                val remaining = MAX_FAILED_ATTEMPTS - newAttempts
+                Timber.w("Auth: PIN incorrecto — $remaining intentos restantes")
+                AuthException.InvalidPin(remaining)
             }
         }
 
@@ -91,6 +104,7 @@ class LoginUserUseCase @Inject constructor(
         userPreferencesRepository.updateCurrentUserId(user.id)
         // Marcar sesión como activa → Splash irá a Dashboard en el próximo inicio
         userPreferencesRepository.updateIsLoggedIn(true)
+        Timber.i("Auth: login exitoso")
 
         user
     }

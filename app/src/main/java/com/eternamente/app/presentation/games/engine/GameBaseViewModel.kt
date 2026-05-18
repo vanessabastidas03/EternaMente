@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import com.eternamente.app.domain.model.GameResult as DomainGameResult
 
 /**
@@ -153,13 +154,13 @@ abstract class GameBaseViewModel<C : GameConfig, R : GameResult>(
 
             // 1 — Guardar resultado en Room (errores no bloquean la navegación)
             runCatching { saveGameResultUseCase(domainResult) }
-                .onFailure { e -> android.util.Log.e("GameBase", "Error guardando resultado: ${e.message}") }
+                .onFailure { e -> Timber.e(e, "GameEngine: Error guardando resultado en Room") }
 
             // 2 — Actualizar gamificación
             runCatching {
                 val session = loadSession(engineResult.sessionId)
                 if (session != null) updateGamificationUseCase(session, listOf(domainResult))
-            }.onFailure { e -> android.util.Log.e("GameBase", "Error actualizando gamificación: ${e.message}") }
+            }.onFailure { e -> Timber.e(e, "GameEngine: Error actualizando gamificación") }
 
             // 3 — Navegar siempre, aunque haya fallado el guardado
             _navigationEvent.emit(
