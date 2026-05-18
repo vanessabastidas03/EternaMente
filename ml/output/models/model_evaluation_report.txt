@@ -1,0 +1,127 @@
+======================================================================
+  EternaMente — Informe de Evaluación del Modelo ML
+  Generado: 2026-05-18 17:39
+======================================================================
+
+1. CONFIGURACIÓN DEL EXPERIMENTO
+----------------------------------------------------------------------
+  Semilla global (SEED):         42
+  Número de features (N):        14
+  Clases:                        NORMAL=0, WATCH=1, ALERT=2
+  Split train/test:              80% / 20% (estratificado por etiqueta)
+  Muestras de entrenamiento:     3,120
+  Muestras de test:              780
+  Nota: cada fila = (usuario, semana) → posible fuga temporal entre
+  semanas del mismo usuario en distintos folds. Ver Sección 8.
+
+2. ISOLATION FOREST (DETECCIÓN DE ANOMALÍAS)
+----------------------------------------------------------------------
+  Configuración:
+    n_estimators:  100
+    contamination: 0.15 (15% esperado de anomalías)
+    random_state:  42
+
+  Entrenamiento:  2,340 semanas de usuarios NORMAL
+  (One-class: el modelo aprende la distribución normal del rendimiento)
+
+  Especificidad (NORMAL correctamente identificado):
+    85.0%
+
+  Sensibilidad (DCL detectado como anomalía):
+    Global:        89.0%  ✓ > 70%
+    DCL_LEVE       : 82.5%
+    DCL_MODERADO   : 100.0%
+
+  Interpretación:
+    El IF detecta patrones globalmente atípicos sin necesitar etiquetas.
+    Es especialmente sensible a usuarios con múltiples dominios degradados
+    (DCL_MODERADO). Para DCL_LEVE (cambios sutiles en 90 días) la detección
+    es inherentemente más difícil — consistent con la literatura clínica.
+
+3. RANDOM FOREST — BÚSQUEDA DE HIPERPARÁMETROS (GridSearchCV)
+----------------------------------------------------------------------
+  Validación cruzada: StratifiedKFold(n_splits=5, shuffle=True)
+  Métrica de selección: F1-weighted (robusta al desbalance de clases)
+  Grid explorado:
+    max_depth: [5, 8, 10]
+    min_samples_leaf: [1, 2, 3]
+
+  Mejores hiperparámetros: {'max_depth': 10, 'min_samples_leaf': 2}
+  Mejor F1-weighted (CV):  97.71%
+
+  Configuración final del modelo:
+    n_estimators:    200
+    max_depth:       10
+    min_samples_leaf:2
+    class_weight:    balanced (ajusta pesos inversamente a frecuencia)
+
+4. RANDOM FOREST — EVALUACIÓN EN TEST
+----------------------------------------------------------------------
+  Muestras de test: 780
+
+  ┌─────────────────────────────────────────────────┐
+  │ Accuracy:          97.82%                     │
+  │ Precision (w):     97.96%                     │
+  │ Recall (w):        97.82%                     │
+  │ F1-score (w):      97.88%                     │
+  │ F1-score (macro):  90.40%                     │
+  │ AUC-ROC (w):      0.9974                     │
+  │ AUC-ROC (macro):  0.9976                     │
+  └─────────────────────────────────────────────────┘
+
+  Reporte por clase:
+              precision    recall  f1-score   support
+
+      NORMAL       0.99      0.99      0.99       726
+       WATCH       0.77      0.86      0.81        43
+       ALERT       0.91      0.91      0.91        11
+
+    accuracy                           0.98       780
+   macro avg       0.89      0.92      0.90       780
+weighted avg       0.98      0.98      0.98       780
+
+  AUC-ROC por clase (One-vs-Rest):
+    NORMAL: 0.9974
+    WATCH : 0.9957
+    ALERT : 0.9995
+
+5. IMPORTANCIA DE FEATURES (Top 5)
+----------------------------------------------------------------------
+  1. delta_from_baseline            28.01%
+  2. accuracy_attention             11.73%
+  3. accuracy_language              11.51%
+  4. accuracy_orientation           9.82%
+  5. mean_rt_memory                 7.09%
+
+  (Ver feature_importance.png para el gráfico completo)
+
+6. MODELO TFLITE — VERIFICACIÓN
+----------------------------------------------------------------------
+  tensorflow no disponible — installar con: pip install tensorflow
+
+  Instrucciones de integración en Android:
+    1. Instalar: pip install tensorflow onnx skl2onnx onnx-tf
+    2. Re-ejecutar: python train_and_export_model.py
+    3. Copiar: eternamente_ml_v1.tflite
+       → app/src/main/res/raw/eternamente_ml_v1.tflite
+
+7. LIMITACIONES Y TRABAJO FUTURO
+----------------------------------------------------------------------
+  a) Datos sintéticos: el modelo se entrenó con datos generados por
+     generate_synthetic_data.py, NO con datos clínicos reales.
+     Para despliegue en producción se requiere validación con datos reales.
+
+  b) Fuga temporal: el split train/test por fila (user × semana)
+     puede tener fugas entre semanas del mismo usuario. Para evaluación
+     definitiva usar GroupShuffleSplit por user_id.
+
+  c) Desbalance de clases: NORMAL=93%, WATCH=6%, ALERT=1%.
+     El peso 'balanced' mitiga el problema pero métricas macro/micro
+     pueden sobre/sub-estimar el rendimiento en clases minoritarias.
+
+  d) Horizonte temporal: el modelo asume 4 semanas de datos pasados.
+     Para usuarios con < 4 semanas de historial la fiabilidad es menor.
+
+======================================================================
+  Generado por train_and_export_model.py (EternaMente ML Pipeline)
+======================================================================

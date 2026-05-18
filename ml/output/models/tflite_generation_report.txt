@@ -1,0 +1,82 @@
+====================================================================
+  EternaMente — Informe de Generación del Modelo TFLite
+  Generado: 2026-05-18 18:15
+====================================================================
+
+ESTRATEGIA: DISTILACIÓN RANDOM FOREST → KERAS MLP → TFLITE
+--------------------------------------------------------------------
+El modelo Random Forest (sklearn) NO puede convertirse directamente
+a TFLite porque los árboles de decisión no tienen representación
+nativa en el formato FlatBuffer de TFLite.
+
+Solución: knowledge distillation (Hinton et al., 2015).
+  1. El RF genera soft targets (probabilidades suavizadas):
+     risk_score = 0.0·P(NORMAL) + 0.5·P(WATCH) + 1.0·P(ALERT)
+  2. Un MLP Keras aprende a replicar ese score (MSE loss).
+  3. El MLP se convierte a TFLite con cuantización INT8.
+
+Ventajas del modelo distilado vs RF nativo:
+  · Tamaño reducido (~10× menor).
+  · Inferencia más rápida en dispositivos móviles.
+  · Cuantización INT8 reduce memoria ~75% con pérdida mínima.
+  · Interfaz simple: [1,14] float32 → [1,1] float32.
+
+ARQUITECTURA DEL MLP
+--------------------------------------------------------------------
+  Input         → [1, 14] FLOAT32 (features normalizadas ∈ [0,1])
+  Dense(64)     → ReLU + He initialization
+  Dropout(0.20) → regularización
+  Dense(32)     → ReLU
+  Dense(1)      → Sigmoid → risk_score ∈ [0,1]
+  Output        → [1,  1] FLOAT32
+
+ENTRENAMIENTO
+--------------------------------------------------------------------
+  Épocas ejecutadas:    253
+  Val loss final (MSE): 0.001269
+  Val MAE final:        0.017763
+  Tiempo de generación: 15.5s
+
+CUANTIZACIÓN INT8
+--------------------------------------------------------------------
+  Método: Post-Training Quantization (PTQ) con dataset representativo
+  Operaciones objetivo: TFLITE_BUILTINS_INT8 + fallback float32
+  Interfaz pública: FLOAT32 (sin cuantización en entrada/salida)
+
+VERIFICACIÓN DEL MODELO
+--------------------------------------------------------------------
+  Input shape:      [np.int32(1), np.int32(14)]
+  Input dtype:      <class 'numpy.float32'>
+  Output shape:     [np.int32(1), np.int32(1)]
+  Output dtype:     <class 'numpy.float32'>
+  Formas correctas: ✓
+  Dtype correcto:   ✓
+  Rango [0,1]:      ✓ [0.0, 0.2421]
+  MAE vs RF:        0.00448 (✓ < 0.10)
+  Corr vs RF:       0.7763
+  Verificación OK:  ✓ PASS
+
+ARCHIVO GENERADO
+--------------------------------------------------------------------
+  Ruta:     /Users/vanne/AndroidStudioProjects/EternaMente/ml/output/models/eternamente_ml_v1.tflite
+  Tamaño:   9 KB  (0.008 MB)
+  Límite:   3.0 MB  (✓ OK)
+
+INTEGRACIÓN EN ANDROID
+--------------------------------------------------------------------
+  1. Copiar el modelo:
+     cp ml/output/models/eternamente_ml_v1.tflite \
+        app/src/main/res/raw/eternamente_ml_v1.tflite
+
+  2. El archivo es consumido automáticamente por:
+     TFLiteModelManager.kt → CognitiveAnalyzer.kt
+     cuando BuildConfig.ML_MODEL_VERSION = "v1.0"
+
+  3. Pipeline de inferencia en Android:
+     FeatureExtractor → FeatureNormalizer → TFLiteModelManager
+     → risk_score ∈ [0,1] → AlertLevel.classify()
+
+====================================================================
+  EternaMente TFLite Generation Script
+  TF: 2.21.0 | Keras: 3.14.1
+====================================================================

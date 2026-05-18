@@ -1,0 +1,167 @@
+======================================================================
+  EternaMente — Resumen Estadístico del Dataset Sintético
+  Generado con seed=42 | 300 usuarios | 90 días por usuario
+======================================================================
+
+1. PARÁMETROS DE GENERACIÓN
+----------------------------------------------------------------------
+  Seed de reproducibilidad:       42
+  Número de usuarios:             300
+  Días simulados por usuario:     90
+  Tasa de ausencia (por día):     20%
+  Efecto de práctica:             +0.5%/semana (primeras 4 semanas)
+  Bonus de racha:                 +5% si streak ≥ 7 días
+  Fecha de inicio simulación:     2024-01-01
+  Ventana de features:            4 semanas
+  Semanas de baseline:            2
+
+  Efectos del momento del día:
+    morning     : +8%
+    afternoon   : -3%
+    night       : -8%
+
+  Tasa de degradación mensual por grupo:
+    NORMAL         : 0–0% | dominios: ninguno
+    DCL_LEVE       : 1–3% | dominios: MEMORY, ORIENTATION
+    DCL_MODERADO   : 3–6% | dominios: MEMORY, ATTENTION, EXECUTIVE, LANGUAGE, ORIENTATION
+
+2. DISTRIBUCIÓN DE USUARIOS
+----------------------------------------------------------------------
+  NORMAL         : n=180 (60%) | baseline_score=85±10 | RT_base=900±150 ms
+  DCL_LEVE       : n= 75 (25%) | baseline_score=75±12 | RT_base=1100±200 ms
+  DCL_MODERADO   : n= 45 (15%) | baseline_score=65±15 | RT_base=1400±300 ms
+
+  Demografía (todos los grupos combinados):
+    Edad media:           69.8 ± 6.7 años
+    Distribución género:  M=145 / F=155
+    6 años de educación: 64 usuarios (21%)
+    9 años de educación: 90 usuarios (30%)
+    12 años de educación: 103 usuarios (34%)
+    16 años de educación: 43 usuarios (14%)
+
+3. ESTADÍSTICAS DE SESIONES
+----------------------------------------------------------------------
+  Total sesiones generadas:       21,600
+  Sesiones por usuario (media):   72.0
+  Tasa de completitud real:       80.0%  (esperado ~80%)
+
+  Sesiones por grupo:
+    NORMAL         : 12,960 sesiones | 72.0/usuario
+    DCL_LEVE       :  5,371 sesiones | 71.6/usuario
+    DCL_MODERADO   :  3,269 sesiones | 72.6/usuario
+
+  Distribución horaria:
+    morning     :  8,660 (40.1%)
+    afternoon   :  8,712 (40.3%)
+    night       :  4,228 (19.6%)
+
+4. ACCURACY POR DOMINIO Y GRUPO (media ± std)
+----------------------------------------------------------------------
+  Dominio                   NORMAL            DCL_LEVE        DCL_MODERADO
+  ------------------------------------------------------------------------
+  MEMORY          86.1 ± 10.4%    73.5 ± 11.7%    60.0 ± 11.5%
+  ATTENTION       86.4 ±  9.7%    75.9 ± 11.2%    60.3 ± 10.9%
+  EXECUTIVE       86.4 ±  9.9%    75.6 ± 11.2%    60.8 ± 11.5%
+  LANGUAGE        86.0 ±  9.8%    76.2 ± 11.2%    60.7 ± 11.1%
+  ORIENTATION     86.1 ± 10.3%    73.5 ± 11.6%    61.9 ± 11.6%
+
+5. TIEMPO DE REACCIÓN POR DOMINIO Y GRUPO (media ± std, ms)
+----------------------------------------------------------------------
+  Dominio                   NORMAL            DCL_LEVE        DCL_MODERADO
+  ------------------------------------------------------------------------
+  MEMORY           884 ±  202    1254 ±  283    1760 ±  463
+  ATTENTION        840 ±  174    1056 ±  252    1628 ±  418
+  EXECUTIVE       1006 ±  216    1258 ±  282    1854 ±  484
+  LANGUAGE         963 ±  207    1255 ±  277    1929 ±  474
+
+6. DISTRIBUCIÓN DE ETIQUETAS
+----------------------------------------------------------------------
+  Total filas (usuario × semana): 3,900
+
+  NORMAL  (n_filas=2,340)
+    NORMAL: 2327 ( 99.4%)
+    WATCH :   13 (  0.6%)
+    ALERT :    0 (  0.0%)
+  DCL_LEVE  (n_filas=975)
+    NORMAL:  960 ( 98.5%)
+    WATCH :   15 (  1.5%)
+    ALERT :    0 (  0.0%)
+  DCL_MODERADO  (n_filas=585)
+    NORMAL:  344 ( 58.8%)
+    WATCH :  188 ( 32.1%)
+    ALERT :   53 (  9.1%)
+
+  Distribución global:
+    NORMAL:  3631 ( 93.1%)
+    WATCH :   216 (  5.5%)
+    ALERT :    53 (  1.4%)
+
+7. FEATURES SEMANALES — ESTADÍSTICAS POR GRUPO
+----------------------------------------------------------------------
+  Feature                                 NORMAL                DCL_LEVE            DCL_MODERADO
+  ------------------------------------------------------------------------------------------------
+  RT MEMORY (ms)           884.819 ± 170.645  1241.669 ± 233.137  1720.015 ± 391.684
+  RT ATTENTION (ms)        840.714 ± 140.486  1057.263 ± 214.542  1582.726 ± 351.399
+  Acc MEMORY (%)            85.854 ±  7.054    73.708 ±  8.313    60.602 ±  8.419
+  Acc ORIENT (%)            85.932 ±  6.737    73.694 ±  8.080    62.515 ±  8.441
+  Trend MEMORY               0.042 ±  0.548    -0.029 ±  0.623    -0.059 ±  0.573
+  Completion rate            0.796 ±  0.089     0.796 ±  0.085     0.800 ±  0.089
+  RT variability             0.202 ±  0.054     0.211 ±  0.051     0.222 ±  0.054
+  ΔBaseline (z)              0.123 ±  0.256     0.072 ±  0.269    -0.240 ±  0.344
+
+8. CORRELACIONES ENTRE FEATURES (|r| > 0.50)
+----------------------------------------------------------------------
+  mean_rt_memory                 × mean_rt_attention              r = +0.637
+  mean_rt_memory                 × mean_rt_executive              r = +0.591
+  mean_rt_memory                 × mean_rt_language               r = +0.659
+  mean_rt_memory                 × accuracy_memory                r = -0.683
+  mean_rt_memory                 × accuracy_attention             r = -0.697
+  mean_rt_memory                 × accuracy_executive             r = -0.704
+  mean_rt_memory                 × accuracy_language              r = -0.688
+  mean_rt_memory                 × accuracy_orientation           r = -0.673
+  mean_rt_attention              × mean_rt_executive              r = +0.658
+  mean_rt_attention              × mean_rt_language               r = +0.599
+  mean_rt_attention              × accuracy_memory                r = -0.661
+  mean_rt_attention              × accuracy_attention             r = -0.686
+  mean_rt_attention              × accuracy_executive             r = -0.668
+  mean_rt_attention              × accuracy_language              r = -0.659
+  mean_rt_attention              × accuracy_orientation           r = -0.648
+  mean_rt_executive              × mean_rt_language               r = +0.675
+  mean_rt_executive              × accuracy_memory                r = -0.598
+  mean_rt_executive              × accuracy_attention             r = -0.631
+  mean_rt_executive              × accuracy_executive             r = -0.642
+  mean_rt_executive              × accuracy_language              r = -0.623
+  mean_rt_executive              × accuracy_orientation           r = -0.590
+  mean_rt_language               × accuracy_memory                r = -0.643
+  mean_rt_language               × accuracy_attention             r = -0.677
+  mean_rt_language               × accuracy_executive             r = -0.682
+  mean_rt_language               × accuracy_language              r = -0.684
+  mean_rt_language               × accuracy_orientation           r = -0.620
+  accuracy_memory                × accuracy_attention             r = +0.867
+  accuracy_memory                × accuracy_executive             r = +0.863
+  accuracy_memory                × accuracy_language              r = +0.867
+  accuracy_memory                × accuracy_orientation           r = +0.849
+  accuracy_attention             × accuracy_executive             r = +0.889
+  accuracy_attention             × accuracy_language              r = +0.891
+  accuracy_attention             × accuracy_orientation           r = +0.869
+  accuracy_executive             × accuracy_language              r = +0.882
+  accuracy_executive             × accuracy_orientation           r = +0.868
+  accuracy_language              × accuracy_orientation           r = +0.855
+
+9. NOTAS METODOLÓGICAS
+----------------------------------------------------------------------
+  • Los scores de baseline por usuario siguen una distribución normal con
+    media y desviación estándar según el grupo clínico, más un factor g
+    individual que introduce correlación entre dominios.
+  • La degradación es lineal desde el día 0; en la realidad el DCL tiene
+    un inicio insidioso y variable — este modelo es una aproximación.
+  • El anomaly score de etiquetado NO es el mismo que el del IsolationForest
+    (el modelo Android); es un proxy heurístico para la generación de labels.
+  • Los datos están desequilibrados por diseño (60/25/15%) para reflejar
+    la prevalencia real del DCL en adultos mayores (Petersen et al., 2018).
+  • Para usarse como ground truth, las etiquetas deben validarse por un
+    neuropsicólogo clínico con acceso a evaluaciones formales.
+
+======================================================================
+  Generado automáticamente por generate_synthetic_data.py (EternaMente)
+======================================================================
