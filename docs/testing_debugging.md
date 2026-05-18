@@ -1,0 +1,415 @@
+# Testing y Debugging — EternaMente
+
+---
+
+## 7.2 Cómo depurar crashes comunes
+
+### Guía rápida: encontrar el crash en Logcat
+
+Cuando la app cierra inesperadamente, el crash aparece en Logcat con nivel **ERROR**.
+Los pasos para localizarlo siempre son los mismos:
+
+**1. Filtrar por FATAL o AndroidRuntime**
+
+En Android Studio → Logcat → campo de búsqueda:
+
+```
+FATAL EXCEPTION
+```
+o por nivel:
+```
+package:com.eternamente.app  level:error
+```
+
+**2. Buscar la línea `Caused by:`**
+
+El stack trace tiene dos partes:
+```
+E  AndroidRuntime: FATAL EXCEPTION: main
+E  AndroidRuntime: Process: com.eternamente.app, PID: 12345
+E  AndroidRuntime: java.lang.RuntimeException: Unable to start activity ...
+E  AndroidRuntime:     at android.app.ActivityThread...
+E  AndroidRuntime: Caused by: <— ESTA ES LA CAUSA REAL
+E  AndroidRuntime:     at com.eternamente.app...  <— ESTA ES TU LÍNEA DE CÓDIGO
+```
+
+Ignorar las primeras líneas del sistema. La causa real está siempre después de `Caused by:`.
+
+**3. Localizar la línea del proyecto**
+
+Dentro del stack trace, buscar líneas con `com.eternamente.app`. Esas son las del código propio.
+Hacer clic en la línea azul en Android Studio para ir directamente al archivo.
+
+**4. Reproducir en debug**
+
+Conectar el dispositivo o emulador en modo debug y reproducir el crash.
+Los logs de Timber aparecen antes del crash y muestran el estado de la app en ese momento.
+
+---
+
+### Crashes documentados
+
+---
+
+#### 1. `NetworkOnMainThreadException`
+
+**Causa probable**
+
+Se está haciendo una llamada de red (o acceso a Room sin `suspend`) en el hilo principal (Main Thread).
+En EternaMente esto puede ocurrir si se llama a `UserRepository` o `FirebaseAuth` directamente
+desde un `@Composable` o desde un `init {}` de ViewModel sin `viewModelScope.launch`.
+
+**Cómo identificarlo en Logcat**
+
+```
+Caused by: android.os.NetworkOnMainThreadException
+    at com.eternamente.app.data.repository.UserRepositoryImpl.login(...)
+```
+
+**Cómo solucionarlo**
+
+Todas las llamadas a Room y Firebase deben estar dentro de una corrutina con `Dispatchers.IO`:
+
+```kotlin
+// ✗ INCORRECTO — bloquea el hilo principal
+val user = userRepository.getUserById(id)
+
+// ✓ CORRECTO — dentro de viewModelScope o withContext
+viewModelScope.launch {
+    val user = userRepository.getUserById(id)  // suspend fun → va a IO automáticamente
+}
+```
+
+En EternaMente, `UserRepositoryImpl` y todos los repositorios ya usan `withContext(Dispatchers.IO)`.
+Si aparece este error, revisar si se añadió una llamada sin `launch` o sin `suspend`.
+
+---
+
+#### 2. `IllegalStateException: Cannot access database on the main thread`
+
+**Causa probable**
+
+Se está accediendo a Room directamente desde el hilo principal sin una función `suspend`.
+También puede ocurrir después de que la base de datos se cierra (raro, pero puede pasar
+si el `Application` se destruye antes de completar una operación en background).
+
+**Cómo identificarlo en Logcat**
+
+```
+Caused by: java.lang.IllegalStateException:
+    Cannot access database on the main thread since it may potentially lock the UI
+    at androidx.room.RoomDatabase.assertNotMainThread(...)
+    at com.eternamente.app.data.local.db.dao.UserDao.getById(...)
+```
+
+**Cómo solucionarlo**
+
+```kotlin
+// ✗ INCORRECTO
+val entity = userDao.getById(id)  // llamado desde main thread
+
+// ✓ CORRECTO — Room con corrutinas (ya implementado en el proyecto)
+suspend fun getUserById(id: String) = withContext(Dispatchers.IO) {
+    userDao.getById(id)
+}
+```
+
+En EternaMente, los DAOs en `data/local/db/dao/` están anotados para corrutinas y todos los
+repositorios usan `withContext(Dispatchers.IO)`. Si aparece este crash, verificar que no se
+llamó a un DAO directamente desde un `BroadcastReceiver.onReceive()` sin `runBlocking` —
+`DailyReminderReceiver` ya usa `runBlocking` exactamente por esta razón.
+
+---
+
+#### 3. `OutOfMemoryError` en juegos
+
+**Causa probable**
+
+El juego de **Memorama** (`MemoryMatchScreen`) o **Encuentra Diferencias** (`SpotDiffScreen`)
+carga imágenes grandes en memoria. Si el dispositivo tiene poca RAM o se juegan muchas sesiones
+seguidas sin liberar recursos, la VM agota el heap.
+
+También puede ocurrir si `MetricsCollector` en `GameEngine` acumula miles de `TrialMetrics`
+sin hacer `reset()` entre sesiones.
+
+**Cómo identificarlo en Logcat**
+
+```
+E  AndroidRuntime: java.lang.OutOfMemoryError: Failed to allocate a X byte allocation
+    at com.eternamente.app.presentation.games.memorymatch.MemoryMatchEngine...
+```
+
+o:
+```
+W  Glide: Load failed for [image_url]
+   java.lang.OutOfMemoryError
+```
+
+**Cómo solucionarlo**
+
+1. **Imágenes**: Coil (ya usado en el proyecto) gestiona el caché automáticamente. Si hay OOM
+   con imágenes, usar `rememberAsyncImagePainter` con `size = Size.ORIGINAL` desactivado:
+
+   ```kotlin
+   AsyncImage(
+       model = ImageRequest.Builder(LocalContext.current)
+           .data(imageRes)
+           .size(400, 400)   // limitar resolución máxima
+           .build(),
+       contentDescription = null
+   )
+   ```
+
+2. **MetricsCollector**: `GameBaseViewModel.onCleared()` ya llama a `engine.metrics.reset()`.
+   Si el crash ocurre en medio de un juego, verificar que el juego llama a `reset()` al reiniciar.
+
+3. **Diagnóstico rápido**: Filtrar en Logcat por `GC_` para ver presión de memoria antes del crash:
+   ```
+   tag:art  GC_
+   ```
+
+---
+
+#### 4. `NullPointerException` en ViewModel
+
+**Causa probable**
+
+En EternaMente los ViewModels usan `StateFlow` con valores iniciales, por lo que los NPE
+son raros. Las causas más frecuentes son:
+
+- Acceder a `hiltViewModel()` fuera del contexto de composición correcto.
+- Llamar a `navController.getBackStackEntry(route)` para una ruta que ya no está en el back stack
+  (visible en `PdfExportScreen` que usa `hiltViewModel(weeklyEntry)`).
+- `lateinit var` no inicializado en un `BroadcastReceiver` sin `@AndroidEntryPoint`.
+
+**Cómo identificarlo en Logcat**
+
+```
+Caused by: java.lang.NullPointerException: Attempt to invoke virtual method '...' on a null object reference
+    at com.eternamente.app.presentation.reports.PdfExportScreen$...
+```
+
+**Cómo solucionarlo**
+
+```kotlin
+// En NavGraph.kt — PdfExportScreen ya tiene protección con runCatching:
+val weeklyEntry = remember(navController) {
+    runCatching {
+        navController.getBackStackEntry(Screen.WeeklyReport.route)
+    }.getOrNull()   // null si la ruta no está en el back stack
+}
+val sharedReportVm: ReportViewModel? = weeklyEntry?.let {
+    hiltViewModel(it)
+}
+// Luego usar el operador Elvis para el estado:
+val reportState = sharedReportVm?.state?.collectAsState()?.value ?: ReportState()
+```
+
+Para `BroadcastReceiver`: confirmar que tiene `@AndroidEntryPoint` y que el `lateinit var`
+inyectado es de tipo no nulable. `DailyReminderReceiver` y `BootReceiver` ya están correctos.
+
+---
+
+#### 5. `CancellationException` en corrutinas
+
+**Causa probable**
+
+`CancellationException` no es un crash en sí — es el mecanismo normal con el que Kotlin
+cancela corrutinas cuando un `ViewModel` se destruye (`onCleared()`). El problema real ocurre
+cuando se captura con un `catch (e: Exception)` genérico sin re-lanzarla.
+
+En EternaMente, `safeCall {}` en `core/Result.kt` captura todas las `Exception`. Si una
+operación larga (análisis ML, guardado Room) se interrumpe por navegación, `safeCall` convertirá
+la `CancellationException` en un `Result.Error` en lugar de cancelar correctamente.
+
+**Cómo identificarlo en Logcat**
+
+```
+W  EternaFCM: Auth: login Firebase diferido (sin red)
+   kotlinx.coroutines.JobCancelledException: Job was cancelled
+```
+
+o en modo verbose:
+```
+D  CoroutineExceptionHandler: CancellationException
+```
+
+**Cómo solucionarlo**
+
+Re-lanzar `CancellationException` en cualquier bloque `catch` genérico:
+
+```kotlin
+// ✗ INCORRECTO — traga la cancelación
+try {
+    someHeavyOperation()
+} catch (e: Exception) {
+    Timber.e(e, "Error")   // CancellationException queda silenciada
+}
+
+// ✓ CORRECTO — re-lanzar para que el sistema de corrutinas funcione
+try {
+    someHeavyOperation()
+} catch (e: CancellationException) {
+    throw e   // siempre re-lanzar
+} catch (e: Exception) {
+    Timber.e(e, "Error")
+}
+```
+
+`safeCall` en el proyecto captura `Exception` genérica. Para operaciones críticas que deben
+respetar la cancelación (análisis ML en `CognitiveAnalysisWorker`), se recomienda usar
+`runCatching` combinado con `ensureActive()`:
+
+```kotlin
+ensureActive()   // lanza CancellationException si el Job fue cancelado
+val result = heavyMlOperation()
+```
+
+---
+
+#### 6. TFLite: `wrong type at input` / `Cannot copy to a TensorFlowLite tensor`
+
+**Causa probable**
+
+El modelo TFLite de EternaMente (`eternamente_ml_v1.tflite`) espera un tensor de tipo
+`FLOAT32` con forma `[1, N_FEATURES]`. Si el número de features cambia (actualmente 14,
+definido en `FeatureExtractor`) o si los datos no se normalizan con `FeatureNormalizer`
+antes de pasarlos al modelo, TFLite lanza una excepción en tiempo de ejecución.
+
+También ocurre si el archivo `.tflite` en `assets/` es una versión diferente al código.
+
+**Cómo identificarlo en Logcat**
+
+```
+E  tflite  : Cannot copy to a TensorFlowLite tensor (input_1): expected type FLOAT32
+    at com.eternamente.app.domain.ml.TFLiteModelManager.runInference(...)
+```
+
+o:
+
+```
+E  tflite  : Tensor input_0 has shape [1,14] but input shape is [1,12]
+    at com.eternamente.app.domain.ml.TFLiteModelManager...
+```
+
+**Cómo solucionarlo**
+
+1. Verificar que `FeatureExtractor.extract()` devuelve exactamente 14 features
+   (constante en `FeatureExtractor.FEATURE_COUNT`).
+
+2. Confirmar que el pipeline siempre pasa por `FeatureNormalizer.normalize()` antes de
+   `TFLiteModelManager.runInference()`.
+
+3. Si se actualiza el modelo `.tflite`, actualizar también `ML_MODEL_VERSION` en `build.gradle.kts`
+   y verificar la forma del tensor con:
+
+   ```kotlin
+   // Diagnóstico — añadir temporalmente en TFLiteModelManager
+   val inputShape = interpreter.getInputTensor(0).shape()
+   Timber.d("ML: forma del tensor de entrada = ${inputShape.toList()}")
+   ```
+
+4. Filtrar en Logcat por `tflite` para ver todos los mensajes del runtime de TFLite.
+
+---
+
+#### 7. Room: `no such table` / `SQLiteException: no such table`
+
+**Causa probable**
+
+La base de datos Room tiene un número de versión (`version`) en `AppDatabase`. Si se añade
+una entidad nueva o se modifica el esquema sin incrementar la versión y proporcionar una
+`Migration`, Room lanza este error al intentar acceder a la tabla nueva.
+
+También ocurre si se desinstala la app y se reinstala con datos de Room que quedaron en el
+almacenamiento del dispositivo de una versión anterior (raro en desarrollo normal).
+
+**Cómo identificarlo en Logcat**
+
+```
+E  SQLiteLog: (1) no such table: cognitive_sessions
+   Caused by: android.database.sqlite.SQLiteException: no such table: cognitive_sessions (code 1)
+    at com.eternamente.app.data.local.db.dao.SessionDao.getAll(...)
+```
+
+o si hay un cambio de esquema sin migración:
+
+```
+E  Room    : java.lang.IllegalStateException: Room cannot verify the data integrity.
+             Looks like you've changed schema but forgot to update the version number.
+```
+
+**Cómo solucionarlo**
+
+**En desarrollo** (datos locales no importan):
+
+```kotlin
+// En DatabaseModule.kt — añadir temporalmente fallbackToDestructiveMigration()
+Room.databaseBuilder(context, AppDatabase::class.java, "eternamente.db")
+    .fallbackToDestructiveMigration()   // ← borra y recrea la DB
+    .build()
+```
+
+⚠️ **Nunca usar `fallbackToDestructiveMigration()` en producción** — borra todos los datos del usuario.
+
+**En producción** (cuando haya usuarios reales):
+
+```kotlin
+// Incrementar version en AppDatabase
+@Database(entities = [...], version = 2)  // era 1
+
+// Proveer la migración en DatabaseModule.kt
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE users ADD COLUMN firebaseUid TEXT")
+    }
+}
+
+Room.databaseBuilder(...)
+    .addMigrations(MIGRATION_1_2)
+    .build()
+```
+
+Los esquemas exportados en `app/schemas/` (generados por KSP con `room.schemaLocation`)
+sirven para verificar qué cambió entre versiones.
+
+---
+
+### Tabla resumen
+
+| Error | Contexto en EternaMente | Solución rápida |
+|---|---|---|
+| `NetworkOnMainThreadException` | Firebase/Room sin corrutina | `viewModelScope.launch {}` |
+| `IllegalStateException: database` | DAO en main thread | `withContext(Dispatchers.IO)` |
+| `OutOfMemoryError` | Juegos con imágenes / MetricsCollector | Limitar resolución Coil, `metrics.reset()` |
+| `NullPointerException` en ViewModel | Back stack o `lateinit` no inicializado | `runCatching + getOrNull()` en `getBackStackEntry` |
+| `CancellationException` silenciada | `safeCall` o `catch (Exception)` genérico | Re-lanzar siempre la `CancellationException` |
+| TFLite `wrong type` | Features count o normalización incorrectos | Verificar `FEATURE_COUNT` y pipeline ML |
+| Room `no such table` | Esquema cambiado sin Migration | `fallbackToDestructiveMigration()` en dev, `Migration` en prod |
+
+---
+
+### Comandos útiles de Logcat para EternaMente
+
+```bash
+# Ver solo logs de la app
+adb logcat --pid=$(adb shell pidof com.eternamente.app)
+
+# Filtrar crashes
+adb logcat AndroidRuntime:E *:S
+
+# Filtrar logs de Timber (tag = clase donde se llama)
+adb logcat -s "AuthViewModel" "LoginUserUseCase" "CognitiveAnalysisWorker"
+
+# Ver presión de memoria
+adb logcat -s art | grep GC_
+
+# Ver logs de TFLite
+adb logcat -s tflite
+
+# Ver logs de Room/SQLite
+adb logcat -s SQLiteLog
+
+# Ver token FCM al arrancar
+adb logcat -s EternaFCM_Token
+```
