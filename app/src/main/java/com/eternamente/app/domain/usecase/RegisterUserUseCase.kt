@@ -10,6 +10,7 @@ import com.eternamente.app.domain.model.UserCredentials
 import com.eternamente.app.domain.repository.AuthRepository
 import com.eternamente.app.domain.repository.GamificationRepository
 import com.eternamente.app.domain.repository.UserRepository
+import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 
@@ -65,18 +66,31 @@ class RegisterUserUseCase @Inject constructor(
     ): Result<User> = safeCall {
         val trimmedName  = name.trim()
         val trimmedEmail = email.lowercase().trim()
+        Timber.d("Auth: intento de registro")
 
         // ── Validaciones de dominio ───────────────────────────────────────────
         require(trimmedName.isNotBlank()) {
             throw AuthException.InvalidPin6Digits // Reutiliza la exc; la VM usa el mensaje
         }
-        if (!EMAIL_REGEX.matches(trimmedEmail)) throw AuthException.InvalidEmail
-        if (pin.length != PIN_LENGTH || !pin.all { it.isDigit() }) throw AuthException.InvalidPin6Digits
-        if (pin != confirmPin) throw AuthException.PinMismatch
+        if (!EMAIL_REGEX.matches(trimmedEmail)) {
+            Timber.w("Auth: registro fallido — formato de correo inválido")
+            throw AuthException.InvalidEmail
+        }
+        if (pin.length != PIN_LENGTH || !pin.all { it.isDigit() }) {
+            Timber.w("Auth: registro fallido — PIN inválido (longitud o formato)")
+            throw AuthException.InvalidPin6Digits
+        }
+        if (pin != confirmPin) {
+            Timber.w("Auth: registro fallido — PINs no coinciden")
+            throw AuthException.PinMismatch
+        }
 
         // Unicidad de correo
         val existing = userRepository.getUserByEmail(trimmedEmail)
-        if (existing is Result.Success && existing.data != null) throw AuthException.EmailAlreadyExists
+        if (existing is Result.Success && existing.data != null) {
+            Timber.w("Auth: registro fallido — correo ya registrado")
+            throw AuthException.EmailAlreadyExists
+        }
 
         // ── Crear usuario mínimo (perfil se completa en onboarding) ───────────
         val userId = UUID.randomUUID().toString()
@@ -92,6 +106,7 @@ class RegisterUserUseCase @Inject constructor(
             consentGivenAt = null         // Registrado en Onboarding
         )
         userRepository.registerUser(user).getOrThrow()
+        Timber.d("Room: usuario guardado localmente")
 
         // ── Hashear PIN y guardar credenciales ────────────────────────────────
         val salt    = cryptoManager.generateSalt()
@@ -104,12 +119,15 @@ class RegisterUserUseCase @Inject constructor(
             lockedUntil          = null
         )
         authRepository.saveCredentials(credentials).getOrThrow()
+        Timber.d("Room: credenciales guardadas")
 
         // ── Inicializar gamificación ──────────────────────────────────────────
         gamificationRepository.initializeProfile(userId).getOrThrow()
+        Timber.d("Room: perfil de gamificación inicializado")
 
         // ── Marcar usuario activo en DataStore ────────────────────────────────
         userPreferencesRepository.updateCurrentUserId(userId)
+        Timber.i("Auth: registro exitoso")
 
         user
     }

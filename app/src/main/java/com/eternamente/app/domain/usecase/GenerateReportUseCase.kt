@@ -1,6 +1,8 @@
 package com.eternamente.app.domain.usecase
 
 import com.eternamente.app.core.Result
+import com.eternamente.app.core.Result.Error
+import com.eternamente.app.core.Result.Success
 import com.eternamente.app.domain.model.CognitiveBaseline
 import com.eternamente.app.domain.model.GameResult
 import com.eternamente.app.domain.model.MlPrediction
@@ -42,7 +44,30 @@ class GenerateReportUseCase(
      *   the user is not found or any sub-query fails.
      */
     suspend operator fun invoke(userId: String): Result<CognitiveReport> {
-        TODO("Not yet implemented")
+        val user = when (val r = userRepository.getUserById(userId)) {
+            is Result.Success -> r.data
+            is Result.Error   -> return Result.Error(r.exception)
+        }
+
+        val recentResults = when (val r = gameResultRepository.getLatestResults(userId, RECENT_RESULTS_LIMIT)) {
+            is Result.Success -> r.data
+            is Result.Error   -> emptyList()
+        }
+
+        val latestPrediction = when (val r = mlRepository.getLatestPrediction(userId)) {
+            is Result.Success -> r.data
+            is Result.Error   -> null
+        }
+
+        return Result.Success(
+            CognitiveReport(
+                user             = user,
+                recentResults    = recentResults,
+                baseline         = null,
+                latestPrediction = latestPrediction,
+                generatedAt      = System.currentTimeMillis()
+            )
+        )
     }
 
     /**

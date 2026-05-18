@@ -20,6 +20,7 @@ import com.eternamente.app.domain.model.SessionType
 import com.eternamente.app.domain.usecase.StartSessionUseCase
 import com.eternamente.app.presentation.component.EternaFullWidthButton
 import dagger.hilt.android.lifecycle.HiltViewModel
+import timber.log.Timber
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -52,7 +53,7 @@ class GameStartViewModel @Inject constructor(
                 when (result) {
                     is com.eternamente.app.core.Result.Success -> result.data.id
                     is com.eternamente.app.core.Result.Error -> {
-                        android.util.Log.w("GameStart", "Session fallback: ${result.exception.message}")
+                        Timber.w("GameEngine: Session fallback — ${result.exception.message}")
                         java.util.UUID.randomUUID().toString()
                     }
                 }

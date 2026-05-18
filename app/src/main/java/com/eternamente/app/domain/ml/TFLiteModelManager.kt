@@ -61,11 +61,14 @@ class TFLiteModelManager @Inject constructor(
     suspend fun runInference(features: FloatArray): FloatArray = withContext(Dispatchers.Default) {
         val interp = interpreter ?: return@withContext statisticalFallback(features)
 
+        val startMs = System.currentTimeMillis()
         try {
             val input  = Array(1) { features.copyOf(INPUT_SIZE) }
             val output = Array(1) { FloatArray(OUTPUT_SIZE) }
             interp.run(input, output)
-            Timber.v("$TAG: inference OK, score=${output[0][0]}")
+            val elapsedMs = System.currentTimeMillis() - startMs
+            Timber.v("$TAG: inference OK — score=${output[0][0]}, elapsed=${elapsedMs}ms")
+            if (elapsedMs > 500) Timber.w("$TAG: inference lenta (${elapsedMs}ms > 500ms umbral)")
             output[0]
         } catch (e: IllegalStateException) {
             Timber.e("$TAG: inference error — ${e.message}")

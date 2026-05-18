@@ -7,6 +7,7 @@ import com.eternamente.app.data.local.preferences.UserPreferences
 import com.eternamente.app.data.local.preferences.UserPreferencesRepository
 import com.eternamente.app.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import timber.log.Timber
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,8 +43,14 @@ class SplashViewModel @Inject constructor(
     }
 
     private suspend fun resolveDestination(p: UserPreferences): Destination {
-        if (p.currentUserId == null)  return Destination.Register
-        if (!p.onboardingCompleted)   return Destination.Onboarding
+        if (p.currentUserId == null) {
+            Timber.d("Auth: Splash → Register (sin usuario en DataStore)")
+            return Destination.Register
+        }
+        if (!p.onboardingCompleted) {
+            Timber.d("Auth: Splash → Onboarding (perfil incompleto)")
+            return Destination.Onboarding
+        }
 
         // Verificar que el usuario existe en Room (puede haberse perdido por migration reset)
         val userExistsInRoom = runCatching {
@@ -56,12 +63,19 @@ class SplashViewModel @Inject constructor(
         return when {
             !userExistsInRoom -> {
                 // Inconsistencia DataStore↔Room: limpiar y forzar re-registro
+                Timber.w("Auth: Splash → Register (inconsistencia DataStore↔Room)")
                 userPreferencesRepository.updateIsLoggedIn(false)
                 userPreferencesRepository.updateCurrentUserId(null)
                 Destination.Register
             }
-            p.isLoggedIn -> Destination.Dashboard
-            else         -> Destination.Login
+            p.isLoggedIn -> {
+                Timber.d("Auth: Splash → Dashboard (sesión activa)")
+                Destination.Dashboard
+            }
+            else -> {
+                Timber.d("Auth: Splash → Login (sesión no activa)")
+                Destination.Login
+            }
         }
     }
 }

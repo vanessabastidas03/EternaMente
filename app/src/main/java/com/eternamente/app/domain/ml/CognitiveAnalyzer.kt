@@ -53,6 +53,7 @@ class CognitiveAnalyzer @Inject constructor(
      * Feature extraction internally switches to [Dispatchers.IO] for Room queries.
      */
     suspend fun analyze(userId: String): CognitiveAnalysisResult = withContext(Dispatchers.Default) {
+        val pipelineStart = System.currentTimeMillis()
         Timber.d("$TAG: analysis started for user $userId")
 
         // 1 + 2 — Feature extraction and normalisation
@@ -94,8 +95,9 @@ class CognitiveAnalyzer @Inject constructor(
                               else "statistical_fallback"
         )
 
+        val pipelineMs = System.currentTimeMillis() - pipelineStart
         Timber.i(
-            "$TAG: done — level=${alertLevel}, anomaly=%.2f, model=%.2f, domains=${flaggedDomains.size}"
+            "$TAG: done in ${pipelineMs}ms — level=${alertLevel}, anomaly=%.2f, model=%.2f, domains=${flaggedDomains.size}"
                 .format(anomalyScore, modelRiskScore)
         )
         result

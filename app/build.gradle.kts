@@ -86,6 +86,13 @@ android {
         kotlinCompilerExtensionVersion = libs.versions.composeCompilerExtension.get()
     }
 
+    // ── Test options ─────────────────────────────────────────
+    testOptions {
+        unitTests.all { test ->
+            test.useJUnitPlatform()   // habilita JUnit 5 (Jupiter) como runner
+        }
+    }
+
     // ── Packaging ───────────────────────────────────────────
     packaging {
         resources {
@@ -188,6 +195,10 @@ dependencies {
 
     // ── Unit Testing ────────────────────────────────────────
     testImplementation(libs.junit)
+    // JUnit 5 (Jupiter) — requerido para @ExtendWith(MockKExtension::class)
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.vintage.engine)       // permite que los tests JUnit 4 existentes sigan funcionando
     testImplementation(libs.mockk)                   // Mocks idiomáticos Kotlin
     testImplementation(libs.turbine)                 // Test de Kotlin Flows
     testImplementation(libs.kotlinx.coroutines.test)
