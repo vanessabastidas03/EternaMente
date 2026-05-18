@@ -2,6 +2,182 @@
 
 ---
 
+## 7.3 Detectar Memory Leaks con LeakCanary
+
+### Estado en EternaMente
+
+LeakCanary **ya está instalado y configurado correctamente** en el proyecto:
+
+```kotlin
+// app/build.gradle.kts
+debugImplementation(libs.leakcanary)   // solo en debug — nunca en release
+```
+
+```toml
+# gradle/libs.versions.toml
+leakcanary = "2.12"
+leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
+```
+
+**No se requiere ninguna inicialización manual.** LeakCanary se activa automáticamente
+mediante un `ContentProvider` que se registra al arrancar la app. Añadir código como
+`LeakCanary.install(this)` en `Application.onCreate()` es incorrecto y produce un error
+en versiones recientes (≥ 2.0).
+
+---
+
+### Cómo funciona LeakCanary
+
+1. **Monitoriza automáticamente** `Activity`, `Fragment`, `ViewModel` y `Service`
+   al destruirse para detectar si quedan referencias vivas cuando no deberían.
+
+2. **Analiza el heap** cuando detecta un objeto que debería haber sido recolectado por GC
+   pero sigue vivo tras 5 segundos.
+
+3. **Muestra una notificación** en la barra de estado con el texto:
+   ```
+   LeakCanary: 1 leak detected
+   ```
+
+4. **Tocar la notificación** abre la pantalla `Leaks` con el stack trace completo,
+   mostrando la cadena de referencias que impide la recolección del objeto.
+
+---
+
+### Cómo leer el informe de LeakCanary
+
+El stack trace de LeakCanary tiene este formato:
+
+```
+┬───
+│ GC Root: Thread local variable
+│
+├─ com.eternamente.app.presentation.auth.AuthViewModel instance
+│    Leaking: YES (ObjectWatcher was watching this because AuthViewModel received
+│             onCleared() and then 5 seconds passed)
+│    key = abc123
+│    watchDurationMillis = 5137
+│    retainedDurationMillis = 137
+│    ↓ AuthViewModel.appContext
+│                    ~~~~~~~~~~
+├─ android.app.Activity instance   ← AQUÍ ESTÁ EL PROBLEMA
+│    Leaking: YES (Activity#mDestroyed is true)
+```
+
+Lo importante es la línea con `↓` y el campo subrayado: ahí está la referencia que retiene
+el objeto. En el ejemplo, el `ViewModel` guarda un `Activity` context en `appContext`
+en lugar de `Application` context.
+
+---
+
+### Patrón correcto vs. incorrecto en EternaMente
+
+#### Context en ViewModel
+
+```kotlin
+// ✗ INCORRECTO — Activity context → memory leak garantizado
+@HiltViewModel
+class MyViewModel @Inject constructor(
+    private val context: Context   // si Hilt inyecta ActivityContext → leak
+) : ViewModel()
+
+// ✓ CORRECTO — Application context → seguro, vive tanto como la app
+@HiltViewModel
+class MyViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context   // ← Hilt provee Application
+) : ViewModel()
+```
+
+`AuthViewModel` y `PdfExportViewModel` ya usan `@ApplicationContext` — **están correctos**.
+
+#### NavController en ViewModel
+
+```kotlin
+// ✗ INCORRECTO — NavController tiene referencia a Activity → leak
+class MyViewModel : ViewModel() {
+    var navController: NavController? = null   // NUNCA guardar en ViewModel
+}
+
+// ✓ CORRECTO — navegación mediante eventos (patrón usado en EternaMente)
+class MyViewModel : ViewModel() {
+    private val _navEvent = MutableSharedFlow<Destination>()
+    val navEvent: SharedFlow<Destination> = _navEvent.asSharedFlow()
+    // La UI colecta el evento y llama a navController.navigate() ella misma
+}
+```
+
+`GameBaseViewModel` ya usa `GameNavigationEvent` como `SharedFlow` — **correcto**.
+
+#### Activity en ViewModel
+
+```kotlin
+// ✗ INCORRECTO — Activity no debe vivir en ViewModel
+class MyViewModel : ViewModel() {
+    lateinit var activity: FragmentActivity   // leak si la Activity se recrea
+}
+
+// ✓ CORRECTO — pasar Activity al método solo cuando se necesita (en Compose: LocalContext)
+@Composable
+fun MyScreen(viewModel: MyViewModel = hiltViewModel()) {
+    val context = LocalContext.current   // acceso seguro al contexto actual
+    Button(onClick = { viewModel.doSomethingWith(context as Activity) }) { ... }
+}
+```
+
+---
+
+### Análisis de riesgo del proyecto actual
+
+| Clase | Context usado | Riesgo |
+|---|---|---|
+| `AuthViewModel` | `@ApplicationContext` vía Hilt | ✅ Sin riesgo |
+| `PdfExportViewModel` | `@ApplicationContext` vía Hilt | ✅ Sin riesgo |
+| `EternaNotificationManager` | `@ApplicationContext` vía Hilt | ✅ Sin riesgo |
+| `NotificationScheduler` | `@ApplicationContext` vía Hilt | ✅ Sin riesgo |
+| `BadgeNotificationHelper` | `@ApplicationContext` vía Hilt | ✅ Sin riesgo |
+| `CognitiveAlertNotificationHelper` | `@ApplicationContext` vía Hilt | ✅ Sin riesgo |
+| `GameBaseViewModel` | Ningún Context — navegación por SharedFlow | ✅ Sin riesgo |
+| Companion objects de ViewModels | Solo `const val` (constantes primitivas) | ✅ Sin riesgo |
+
+**No se detectaron riesgos de memory leak en el proyecto.**
+
+---
+
+### Casos típicos que LeakCanary detectaría en Android
+
+| Patrón | Por qué leak | Solución |
+|---|---|---|
+| `Activity` context en `ViewModel` | ViewModel sobrevive a la Activity | `@ApplicationContext` |
+| `NavController` en `ViewModel` | NavController referencia Activity | Navegación por eventos |
+| `Listener` no desregistrado | Callback retiene la Activity | Desregistrar en `onDestroy` / `onCleared` |
+| `Handler` con `Activity` | Messages en cola retienen la Activity | Usar `WeakReference` o cancelar en `onDestroy` |
+| `BroadcastReceiver` sin `unregister` | Si se registra dinámicamente | `unregisterReceiver` en `onStop` |
+| `Coroutine` lanzada sin scope | Corre indefinidamente | Usar `viewModelScope` o `lifecycleScope` |
+
+En EternaMente, todos los `BroadcastReceiver` son estáticos (declarados en el Manifest),
+por lo que el sistema los gestiona sin necesidad de `unregisterReceiver`.
+
+---
+
+### Comandos útiles
+
+```bash
+# Ver el heap dump generado por LeakCanary
+adb pull /data/data/com.eternamente.app/files/leakcanary/ .
+
+# Forzar análisis de heap desde adb (útil en CI)
+adb shell am broadcast -a com.squareup.leakcanary.action.DUMP_HEAP \
+    -p com.eternamente.app
+
+# Ver logs de LeakCanary en Logcat
+adb logcat -s LeakCanary
+
+# Limpiar resultados anteriores de LeakCanary
+adb shell pm clear com.eternamente.app
+```
+
+---
+
 ## 7.2 Cómo depurar crashes comunes
 
 ### Guía rápida: encontrar el crash en Logcat
