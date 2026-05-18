@@ -39,6 +39,10 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
+*.p12
+*.pem
+service-account*.json
+firebase-adminsdk*.json
 
 # Claude Code
 .claude/

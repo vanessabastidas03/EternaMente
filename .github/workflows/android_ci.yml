@@ -1,12 +1,17 @@
 name: EternaMente CI
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Triggers
+# ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
     branches: [ main, develop ]
-
   pull_request:
     branches: [ develop ]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 1 — Debug build (siempre activo, no requiere secrets)
+# ─────────────────────────────────────────────────────────────────────────────
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -32,6 +37,9 @@ jobs:
       - name: Dar permiso a gradlew
         run: chmod +x gradlew
 
+      # google-services.json está en .gitignore (contiene datos reales en local).
+      # En CI se genera un fichero falso solo para que el plugin google-services
+      # pueda procesar el manifest sin credenciales reales.
       - name: Crear google-services.json falso
         run: |
           mkdir -p app
@@ -71,4 +79,87 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apkputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 2 — Release build firmada (OPCIONAL — requiere secrets configurados)
+#
+# Para activar este job:
+#   1. Crear un keystore de release (ver docs/github_secrets.md).
+#   2. Codificar el keystore en Base64:
+#        base64 -i release.jks | tr -d '\n' > keystore_b64.txt
+#   3. Copiar el contenido y agregarlo como secret KEYSTORE_BASE64 en GitHub.
+#   4. Agregar los demás secrets (ver docs/github_secrets.md).
+#   5. Descomentar el bloque de abajo y hacer push.
+#
+# Secrets requeridos:
+#   KEYSTORE_BASE64     — keystore codificado en Base64
+#   KEYSTORE_PASSWORD   — contraseña del archivo .jks
+#   KEY_ALIAS           — alias de la clave dentro del keystore
+#   KEY_PASSWORD        — contraseña de la clave
+#   FIREBASE_APP_ID     — App ID de Firebase App Distribution (opcional)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# build-release:
+#   runs-on: ubuntu-latest
+#   needs: build-and-test          # Solo corre si el debug build pasa
+#   if: github.ref == 'refs/heads/main'   # Solo en push a main
+#
+#   steps:
+#     - name: Checkout código
+#       uses: actions/checkout@v4
+#
+#     - name: Configurar JDK 17
+#       uses: actions/setup-java@v4
+#       with:
+#         java-version: "17"
+#         distribution: "temurin"
+#
+#     - name: Cache Gradle
+#       uses: actions/cache@v4
+#       with:
+#         path: |
+#           ~/.gradle/caches
+#           ~/.gradle/wrapper
+#         key: gradle-${{ hashFiles('**/*.gradle.kts') }}
+#
+#     - name: Dar permiso a gradlew
+#       run: chmod +x gradlew
+#
+#     - name: Crear google-services.json desde secret
+#       # En release usar el google-services.json real almacenado como secret
+#       # (codificado en Base64 como GOOGLE_SERVICES_JSON_BASE64)
+#       run: |
+#         echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > app/google-services.json
+#
+#     - name: Restaurar keystore desde secret
+#       # KEYSTORE_BASE64: contenido del .jks codificado en Base64
+#       run: |
+#         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.jks
+#
+#     - name: Compilar APK Release firmada
+#       # Los secrets se pasan como propiedades de Gradle para el signingConfig
+#       run: |
+#         ./gradlew assembleRelease \
+#           -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/release.jks" \
+#           -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+#           -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
+#           -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+#
+#     - name: Subir APK Release como artefacto
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: app-release
+#         path: app/build/outputs/apk/release/app-release.apk
+#
+#     # ── Firebase App Distribution (opcional) ──────────────────────────────
+#     # Requiere: FIREBASE_APP_ID secret y google-services.json real
+#     #
+#     # - name: Distribuir via Firebase App Distribution
+#     #   uses: wzieba/Firebase-Distribution-Github-Action@v1
+#     #   with:
+#     #     appId:       ${{ secrets.FIREBASE_APP_ID }}
+#     #     token:       ${{ secrets.FIREBASE_TOKEN }}
+#     #     groups:      testers
+#     #     file:        app/build/outputs/apk/release/app-release.apk
+#     #     releaseNotes: "Build automática desde rama main"
