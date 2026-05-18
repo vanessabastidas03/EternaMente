@@ -12,169 +12,210 @@ import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.just
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
-/**
- * Tests unitarios para [LoginUserUseCase].
- *
- * Cubre: login exitoso, usuario no encontrado, PIN incorrecto,
- * política de bloqueo tras 5 intentos y cuenta bloqueada activamente.
- */
+@ExtendWith(MockKExtension::class)
+@DisplayName("LoginUserUseCase")
 class LoginUserUseCaseTest {
+
+    private val userRepository: UserRepository               = mockk()
+    private val authRepository: AuthRepository               = mockk()
+    private val cryptoManager: CryptoManager                 = mockk()
+    private val userPrefsRepository: UserPreferencesRepository = mockk()
 
     private lateinit var useCase: LoginUserUseCase
 
-    private val userRepository: UserRepository             = mockk()
-    private val authRepository: AuthRepository             = mockk()
-    private val cryptoManager: CryptoManager               = mockk()
-    private val userPrefsRepository: UserPreferencesRepository = mockk()
-
     private val testUser = User(
-        id             = "user-123",
-        email          = "ana@example.com",
-        name           = "Ana García",
-        age            = 72,
-        educationYears = 12,
-        gender         = "Mujer",
-        createdAt      = 1_000_000L,
-        consentGivenAt = 1_000_001L
+        id = "user-123", email = "ana@example.com", name = "Ana García",
+        age = 72, educationYears = 12, gender = "Mujer",
+        createdAt = 1_000_000L, consentGivenAt = 1_000_001L
     )
 
-    private val testCredentials = UserCredentials(
-        userId               = "user-123",
-        pinHash              = "correct_hash",
-        pinSalt              = "salt_base64",
-        failedLoginAttempts  = 0,
-        lockedUntil          = null
+    private val validCredentials = UserCredentials(
+        userId = "user-123",
+        pinHash = "correct_hash",
+        pinSalt = "salt64",
+        failedLoginAttempts = 0,
+        lockedUntil = null
     )
 
-    @Before
+    @BeforeEach
     fun setUp() {
-        useCase = LoginUserUseCase(
-            userRepository, authRepository, cryptoManager, userPrefsRepository
-        )
+        useCase = LoginUserUseCase(userRepository, authRepository, cryptoManager, userPrefsRepository)
 
         coEvery { userRepository.getUserByEmail("ana@example.com") } returns Result.Success(testUser)
-        coEvery { authRepository.getCredentialsByUserId("user-123") } returns Result.Success(testCredentials)
-        coEvery { cryptoManager.verifyPin("123456", "salt_base64", "correct_hash") } returns true
+        coEvery { authRepository.getCredentialsByUserId("user-123") } returns Result.Success(validCredentials)
+        coEvery { cryptoManager.verifyPin("123456", "salt64", "correct_hash") } returns true
         coEvery { authRepository.updateFailedAttempts(any(), any(), any()) } returns Result.Success(Unit)
         coEvery { userPrefsRepository.updateCurrentUserId(any()) } just Runs
         coEvery { userPrefsRepository.updateIsLoggedIn(any()) } just Runs
     }
 
-    // ── Login exitoso ─────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    @Nested @DisplayName("Login exitoso")
+    inner class LoginSuccess {
 
-    @Test
-    fun `login exitoso retorna el usuario`() = runTest {
-        val result = useCase("ana@example.com", "123456")
-        assertTrue(result is Result.Success)
-        assertEquals(testUser, (result as Result.Success).data)
+        @Test
+        fun `devuelve el usuario autenticado`() = runTest {
+            val result = useCase("ana@example.com", "123456")
+            assertInstanceOf(Result.Success::class.java, result)
+            assertEquals(testUser, (result as Result.Success).data)
+        }
+
+        @Test
+        fun `normaliza el correo a minúsculas`() = runTest {
+            useCase("ANA@EXAMPLE.COM", "123456")
+            coVerify { userRepository.getUserByEmail("ana@example.com") }
+        }
+
+        @Test
+        fun `almacena userId en DataStore al tener éxito`() = runTest {
+            useCase("ana@example.com", "123456")
+            coVerify(exactly = 1) { userPrefsRepository.updateCurrentUserId("user-123") }
+        }
+
+        @Test
+        fun `no actualiza failedAttempts cuando ya era cero`() = runTest {
+            useCase("ana@example.com", "123456")
+            coVerify(exactly = 0) { authRepository.updateFailedAttempts(any(), any(), any()) }
+        }
+
+        @Test
+        fun `resetea intentos fallidos previos al tener éxito`() = runTest {
+            coEvery { authRepository.getCredentialsByUserId("user-123") } returns
+                Result.Success(validCredentials.copy(failedLoginAttempts = 3))
+
+            useCase("ana@example.com", "123456")
+
+            coVerify { authRepository.updateFailedAttempts("user-123", 0, null) }
+        }
     }
 
-    @Test
-    fun `login exitoso almacena userId en DataStore`() = runTest {
-        useCase("ana@example.com", "123456")
-        coVerify(exactly = 1) { userPrefsRepository.updateCurrentUserId("user-123") }
+    // ─────────────────────────────────────────────────────────────────────────
+    @Nested @DisplayName("PIN incorrecto")
+    inner class WrongPin {
+
+        @Test
+        fun `devuelve InvalidPin con intentos restantes`() = runTest {
+            coEvery { cryptoManager.verifyPin("000000", "salt64", "correct_hash") } returns false
+
+            val result = useCase("ana@example.com", "000000")
+
+            assertInstanceOf(Result.Error::class.java, result)
+            val ex = (result as Result.Error).exception
+            assertInstanceOf(AuthException.InvalidPin::class.java, ex)
+            assertEquals(
+                LoginUserUseCase.MAX_FAILED_ATTEMPTS - 1,
+                (ex as AuthException.InvalidPin).attemptsRemaining
+            )
+        }
+
+        @Test
+        fun `incrementa el contador de intentos fallidos en Room`() = runTest {
+            coEvery { cryptoManager.verifyPin(any(), any(), any()) } returns false
+
+            useCase("ana@example.com", "000000")
+
+            coVerify { authRepository.updateFailedAttempts("user-123", 1, null) }
+        }
+
+        @Test
+        fun `el quinto fallo bloquea la cuenta 30 minutos`() = runTest {
+            coEvery { authRepository.getCredentialsByUserId("user-123") } returns
+                Result.Success(validCredentials.copy(failedLoginAttempts = 4))
+            coEvery { cryptoManager.verifyPin(any(), any(), any()) } returns false
+
+            val result = useCase("ana@example.com", "000000")
+
+            assertInstanceOf(Result.Error::class.java, result)
+            assertInstanceOf(AuthException.AccountLocked::class.java, (result as Result.Error).exception)
+            coVerify { authRepository.updateFailedAttempts("user-123", 5, match { it != null }) }
+        }
     }
 
-    @Test
-    fun `login exitoso NO actualiza failed attempts si era 0`() = runTest {
-        useCase("ana@example.com", "123456")
-        coVerify(exactly = 0) { authRepository.updateFailedAttempts(any(), any(), any()) }
+    // ─────────────────────────────────────────────────────────────────────────
+    @Nested @DisplayName("Usuario no existe")
+    inner class UserNotFound {
+
+        @Test
+        fun `correo no registrado devuelve UserNotFound`() = runTest {
+            coEvery { userRepository.getUserByEmail(any()) } returns Result.Success(null)
+
+            val result = useCase("noexiste@example.com", "123456")
+
+            assertInstanceOf(Result.Error::class.java, result)
+            assertEquals(AuthException.UserNotFound, (result as Result.Error).exception)
+        }
+
+        @Test
+        fun `usuario no encontrado no intenta verificar PIN`() = runTest {
+            coEvery { userRepository.getUserByEmail(any()) } returns Result.Success(null)
+
+            useCase("noexiste@example.com", "123456")
+
+            coVerify(exactly = 0) { cryptoManager.verifyPin(any(), any(), any()) }
+        }
+
+        @Test
+        fun `credenciales no encontradas devuelven UserNotFound`() = runTest {
+            coEvery { authRepository.getCredentialsByUserId("user-123") } returns
+                Result.Success(null)
+
+            val result = useCase("ana@example.com", "123456")
+
+            assertInstanceOf(Result.Error::class.java, result)
+            assertEquals(AuthException.UserNotFound, (result as Result.Error).exception)
+        }
     }
 
-    @Test
-    fun `login exitoso resetea intentos fallidos previos`() = runTest {
-        coEvery { authRepository.getCredentialsByUserId("user-123") } returns
-            Result.Success(testCredentials.copy(failedLoginAttempts = 2))
+    // ─────────────────────────────────────────────────────────────────────────
+    @Nested @DisplayName("Cuenta bloqueada")
+    inner class AccountLocked {
 
-        useCase("ana@example.com", "123456")
-        coVerify { authRepository.updateFailedAttempts("user-123", 0, null) }
-    }
+        @Test
+        fun `cuenta bloqueada activamente devuelve AccountLocked sin verificar PIN`() = runTest {
+            val futureMs = System.currentTimeMillis() + 20 * 60_000L
+            coEvery { authRepository.getCredentialsByUserId("user-123") } returns
+                Result.Success(validCredentials.copy(lockedUntil = futureMs))
 
-    @Test
-    fun `correo se normaliza a minusculas`() = runTest {
-        useCase("ANA@EXAMPLE.COM", "123456")
-        coVerify { userRepository.getUserByEmail("ana@example.com") }
-    }
+            val result = useCase("ana@example.com", "123456")
 
-    // ── Usuario no encontrado ─────────────────────────────────────────────────
+            assertInstanceOf(Result.Error::class.java, result)
+            assertInstanceOf(AuthException.AccountLocked::class.java, (result as Result.Error).exception)
+            coVerify(exactly = 0) { cryptoManager.verifyPin(any(), any(), any()) }
+        }
 
-    @Test
-    fun `correo no registrado retorna UserNotFound`() = runTest {
-        coEvery { userRepository.getUserByEmail(any()) } returns Result.Success(null)
+        @Test
+        fun `bloqueo expirado permite el intento de login`() = runTest {
+            val pastMs = System.currentTimeMillis() - 1_000L
+            coEvery { authRepository.getCredentialsByUserId("user-123") } returns
+                Result.Success(validCredentials.copy(lockedUntil = pastMs))
 
-        val result = useCase("noexiste@example.com", "123456")
-        assertTrue(result is Result.Error)
-        assertEquals(AuthException.UserNotFound, (result as Result.Error).exception)
-    }
+            val result = useCase("ana@example.com", "123456")
 
-    // ── PIN incorrecto ────────────────────────────────────────────────────────
+            assertTrue(result is Result.Success)
+        }
 
-    @Test
-    fun `pin incorrecto retorna InvalidPin con intentos restantes`() = runTest {
-        coEvery { cryptoManager.verifyPin("000000", "salt_base64", "correct_hash") } returns false
+        @Test
+        fun `AccountLocked incluye minutos restantes positivos`() = runTest {
+            val futureMs = System.currentTimeMillis() + 25 * 60_000L
+            coEvery { authRepository.getCredentialsByUserId("user-123") } returns
+                Result.Success(validCredentials.copy(lockedUntil = futureMs))
 
-        val result = useCase("ana@example.com", "000000")
-        assertTrue(result is Result.Error)
-        val exception = (result as Result.Error).exception
-        assertTrue(exception is AuthException.InvalidPin)
-        assertEquals(
-            LoginUserUseCase.MAX_FAILED_ATTEMPTS - 1,
-            (exception as AuthException.InvalidPin).attemptsRemaining
-        )
-    }
+            val result = useCase("ana@example.com", "123456")
 
-    @Test
-    fun `pin incorrecto incrementa failedLoginAttempts`() = runTest {
-        coEvery { cryptoManager.verifyPin(any(), any(), any()) } returns false
-
-        useCase("ana@example.com", "000000")
-        coVerify { authRepository.updateFailedAttempts("user-123", 1, null) }
-    }
-
-    // ── Bloqueo de cuenta ─────────────────────────────────────────────────────
-
-    @Test
-    fun `5to intento fallido bloquea la cuenta 30 minutos`() = runTest {
-        coEvery { authRepository.getCredentialsByUserId("user-123") } returns
-            Result.Success(testCredentials.copy(failedLoginAttempts = 4)) // 4 previos → 5to ahora
-        coEvery { cryptoManager.verifyPin(any(), any(), any()) } returns false
-
-        val result = useCase("ana@example.com", "000000")
-        assertTrue(result is Result.Error)
-        assertTrue((result as Result.Error).exception is AuthException.AccountLocked)
-
-        // Verifica que lockedUntil se establece (no null)
-        coVerify { authRepository.updateFailedAttempts("user-123", 5, match { it != null }) }
-    }
-
-    @Test
-    fun `cuenta activamente bloqueada retorna AccountLocked sin verificar PIN`() = runTest {
-        val futureTime = System.currentTimeMillis() + 20 * 60_000L // 20 min en el futuro
-        coEvery { authRepository.getCredentialsByUserId("user-123") } returns
-            Result.Success(testCredentials.copy(lockedUntil = futureTime))
-
-        val result = useCase("ana@example.com", "123456")
-        assertTrue(result is Result.Error)
-        assertTrue((result as Result.Error).exception is AuthException.AccountLocked)
-
-        // NO debe verificar el PIN cuando está bloqueada
-        coVerify(exactly = 0) { cryptoManager.verifyPin(any(), any(), any()) }
-    }
-
-    @Test
-    fun `bloqueo expirado permite intentar login`() = runTest {
-        val pastTime = System.currentTimeMillis() - 1_000L // Ya expiró
-        coEvery { authRepository.getCredentialsByUserId("user-123") } returns
-            Result.Success(testCredentials.copy(lockedUntil = pastTime))
-
-        val result = useCase("ana@example.com", "123456")
-        assertTrue("El login debe proceder cuando el bloqueo expiró", result is Result.Success)
+            val ex = (result as Result.Error).exception as AuthException.AccountLocked
+            assertTrue(ex.minutesRemaining > 0)
+        }
     }
 }
