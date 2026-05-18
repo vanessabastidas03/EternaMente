@@ -178,6 +178,182 @@ adb shell pm clear com.eternamente.app
 
 ---
 
+## 7.4 Medir rendimiento con Android Profiler
+
+### Cómo abrir el Profiler
+
+```
+Android Studio → View → Tool Windows → Profiler
+```
+
+O con el atajo: **barra inferior** → icono de cronómetro durante una sesión de debug.
+
+Requisitos:
+- Dispositivo o emulador conectado en modo debug.
+- App en variante `debug` (la release tiene ofuscación y es menos legible en el Profiler).
+- En `run configurations`: marcar **"Profile 'app'"** en lugar de **"Run 'app'"**.
+
+---
+
+### CPU Profiler — durante gameplay
+
+**Cuándo usarlo:** al sospechar que un juego congela la UI, genera jank (frames perdidos)
+o mantiene el CPU al 100 % sin bajar después de terminar.
+
+**Pasos:**
+
+1. Profiler → seleccionar proceso `com.eternamente.app` → pestaña **CPU**.
+2. Pulsar **Record** (tipo: *Callstack Sample* para Kotlin/Coroutines).
+3. Jugar una sesión completa del juego cognitivo (ej. MemoryMatch, TrailMaking).
+4. Pulsar **Stop**.
+5. En el flame chart, buscar métodos con barra ancha → son los que más CPU consumen.
+
+**Criterios esperados en EternaMente:**
+
+| Momento | CPU esperado |
+|---|---|
+| Juego activo (lógica + UI) | 20–50 % — varía por juego |
+| Juego completado / navegando | < 10 % — debe bajar al salir |
+| CPU al 100 % sostenido | ⚠ Revisar loop o corrutina sin `delay` |
+| Jank (frames > 16 ms) | ⚠ Revisar cálculo en Main thread |
+
+**Señales de alerta en el Profiler:**
+
+- `GameEngine.tick()` o `GameTimer` aparecen en la parte superior del flame chart con
+  barras muy anchas → el motor de juego consume demasiado tiempo por frame.
+- `MetricsCollector.record()` aparece frecuentemente → considera reducir la frecuencia
+  de muestreo de métricas.
+- `Recomposer` (Compose) aparece con picos altos → revisar recomposiciones innecesarias
+  en las pantallas de juego.
+
+**Cómo identificar recomposiciones excesivas en Compose:**
+
+```
+Layout Inspector → Recomposition Counts
+```
+O en Logcat filtrar:
+```
+tag:Choreographer  skipped
+```
+Más de 3 frames perdidos consecutivos indica trabajo excesivo en el Main thread.
+
+---
+
+### Memory Profiler — durante navegación y sesiones largas
+
+**Cuándo usarlo:** al sospechar crecimiento continuo de heap o para confirmar que
+LeakCanary no reporta falsos negativos.
+
+**Pasos:**
+
+1. Profiler → pestaña **Memory**.
+2. Navegar entre pantallas: Login → Dashboard → Juego → Resultado → Dashboard.
+3. Observar la línea de heap en el gráfico — debe subir durante el juego y **bajar** al volver.
+4. Si el heap sube y no baja: pulsar **Force GC** (ícono de cubo de basura).
+5. Si después del GC el heap sigue alto: hay un posible leak — revisar con LeakCanary.
+
+**Criterios esperados:**
+
+| Situación | Heap esperado |
+|---|---|
+| App en Dashboard idle | ~ 50–80 MB (varía por dispositivo) |
+| Durante un juego con imágenes | +20–40 MB (Coil carga imágenes) |
+| Tras terminar el juego y volver | Debe volver al nivel previo tras GC |
+| Crecimiento sostenido sesión a sesión | ⚠ Memory leak — revisar con LeakCanary |
+
+**Puntos de atención en EternaMente:**
+
+- `MemoryMatchScreen` y `SpotDiffScreen` cargan imágenes → pico temporal es normal.
+- `MetricsCollector` acumula `TrialMetrics` durante el juego → `engine.metrics.reset()` en
+  `GameBaseViewModel.onCleared()` libera esa memoria. Verificar que ocurra en el Profiler.
+- `IsolationForestModel` mantiene en memoria el historial de vectores de features → el tamaño
+  crece con el uso. Es intencional y acotado (máximo ~ 100 vectores × 14 floats × 4 bytes ≈ 5 KB).
+
+---
+
+### Network Profiler — Firebase y FCM
+
+**Cuándo usarlo:** para confirmar el comportamiento offline-first y que Firebase no hace
+llamadas de red inesperadas durante el uso normal de los juegos.
+
+**Pasos:**
+
+1. Profiler → pestaña **Network**.
+2. Navegar y jugar normalmente.
+3. Observar que la actividad de red es mínima o nula durante juegos cognitivos.
+4. Hacer login → verificar el spike de Firebase Auth (esperado, ~ 1–2 KB).
+5. Activar modo avión → jugar → confirmar que la app sigue funcionando (offline-first).
+
+**Criterios esperados:**
+
+| Evento | Red esperada |
+|---|---|
+| Login con Firebase Auth | 1–3 KB (handshake + token) |
+| Juego cognitivo activo | 0 bytes — todo es local (Room) |
+| Token FCM refresh | < 1 KB — ocurre raramente en background |
+| Análisis ML semanal | 0 bytes — on-device (WorkManager + Room) |
+| Modo avión, cualquier juego | 0 bytes — offline-first confirmado |
+
+Si aparece tráfico durante un juego cognitivo → investigar qué componente lo genera.
+Filtrar en Network Profiler por host para identificar el origen.
+
+---
+
+### ML / TFLite — cuando el modelo esté integrado
+
+El modelo TFLite (`eternamente_ml_v1.tflite`) corre en `CognitiveAnalysisWorker` vía
+`CognitiveAnalyzer.analyze()` en background (WorkManager + `Dispatchers.Default`).
+**Nunca bloquea la UI.**
+
+**Logs ya instrumentados para medir el rendimiento:**
+
+```
+# Filtrar en Logcat para ver tiempos de inferencia
+tag:TFLiteModelManager
+
+# Ejemplo de salida esperada:
+D  TFLiteModelManager: inference OK — score=0.32, elapsed=48ms
+W  TFLiteModelManager: inference lenta (612ms > 500ms umbral)
+
+# Pipeline completo
+tag:CognitiveAnalyzer
+
+# Ejemplo de salida:
+I  CognitiveAnalyzer: done in 237ms — level=NORMAL, anomaly=0.31, model=0.28, domains=0
+```
+
+**Criterios de rendimiento ML:**
+
+| Métrica | Objetivo | Acción si se supera |
+|---|---|---|
+| `TFLiteModelManager` — `elapsed` | < 500 ms | Reducir `numThreads` o simplificar el modelo |
+| `CognitiveAnalyzer` pipeline total | < 2 000 ms | Perfil de CPU en el Worker para encontrar el cuello de botella |
+| Carga del modelo (`tryLoadInterpreter`) | < 1 000 ms | Cargar en background al iniciar la app, no al primer uso |
+
+**Cómo medir con el Profiler:**
+
+1. Profiler → CPU → Record (System Trace).
+2. Disparar el análisis manual desde `SettingsScreen` (si hay opción de debug) o
+   esperar al cron semanal de WorkManager.
+3. Buscar en el flame chart: `CognitiveAnalyzer.analyze` → `TFLiteModelManager.runInference`.
+4. La barra del método indica duración real — compararla con los logs de Timber.
+
+---
+
+### Resumen de criterios de rendimiento
+
+| Métrica | Objetivo | Cómo medirlo |
+|---|---|---|
+| CPU en juego | < 50 % sostenido | CPU Profiler → Callstack Sample |
+| CPU tras terminar el juego | < 10 % | CPU Profiler — observar bajada |
+| Heap durante juego | +20–40 MB máx. | Memory Profiler — pico y liberación |
+| Heap tras GC | Vuelve al nivel base | Memory Profiler → Force GC |
+| Red en modo offline | 0 bytes durante juegos | Network Profiler — modo avión |
+| Inferencia TFLite | < 500 ms | Logcat `tag:TFLiteModelManager` |
+| Pipeline ML completo | < 2 000 ms | Logcat `tag:CognitiveAnalyzer` |
+
+---
+
 ## 7.2 Cómo depurar crashes comunes
 
 ### Guía rápida: encontrar el crash en Logcat
