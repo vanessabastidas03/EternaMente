@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+        INTERNET: inyectado automáticamente por el AAR de Firebase/Google Play Services.
+        No se declara aquí para evitar duplicados, pero está presente en el merged manifest.
+        Firebase Auth y FCM lo requieren para comunicación con los servidores de Google.
+    -->
+
     <!-- Notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Exact alarms: API 31-32 requires user grant; API 33+ auto-granted via USE_EXACT_ALARM -->
@@ -17,6 +23,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.EternaMente">

@@ -77,7 +77,7 @@ class CognitiveAnalysisWorker @AssistedInject constructor(
             }
 
             // Run the full analysis pipeline
-            Timber.i("$TAG: starting analysis for user=$userId (attempt ${runAttemptCount + 1})")
+            Timber.i("$TAG: starting analysis for user=${userId.take(8)}… (attempt ${runAttemptCount + 1})")
             val analysis = cognitiveAnalyzer.analyze(userId)
 
             // Persist as MlPrediction
