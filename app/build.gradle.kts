@@ -3,12 +3,20 @@
 // Módulo principal: app Android para detección de deterioro
 // cognitivo leve mediante juegos + IA on-device
 // ============================================================
+import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)             // Procesamiento de anotaciones: Room + Hilt
     alias(libs.plugins.hilt)            // DI — genera componentes Hilt
     alias(libs.plugins.google.services) // Firebase — transforma google-services.json
+}
+
+// ── Keystore — leído desde keystore.properties (nunca hardcodeado aquí) ──────
+// keystore.properties está en .gitignore → no se sube a git
+val keystoreProps = Properties().also { props ->
+    val propsFile = rootProject.file("keystore.properties")
+    if (propsFile.exists()) props.load(propsFile.inputStream())
 }
 
 android {
@@ -33,6 +41,16 @@ android {
         }
     }
 
+    // ── Signing ─────────────────────────────────────────────
+    signingConfigs {
+        create("release") {
+            storeFile     = file(keystoreProps.getProperty("storeFile", ""))
+            storePassword = keystoreProps.getProperty("storePassword", "")
+            keyAlias      = keystoreProps.getProperty("keyAlias", "")
+            keyPassword   = keystoreProps.getProperty("keyPassword", "")
+        }
+    }
+
     // ── Build Types ──────────────────────────────────────────
     buildTypes {
         debug {
@@ -45,9 +63,10 @@ android {
             buildConfigField("Boolean", "ENABLE_STRICT_MODE", "true")
         }
         release {
-            isDebuggable    = false
-            isMinifyEnabled = true
+            isDebuggable      = false
+            isMinifyEnabled   = true
             isShrinkResources = true   // Elimina recursos no referenciados
+            signingConfig     = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

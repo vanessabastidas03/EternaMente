@@ -47,3 +47,5 @@ firebase-adminsdk*.json
 # Claude Code
 .claude/
 
+keystore.properties
+keystore/
