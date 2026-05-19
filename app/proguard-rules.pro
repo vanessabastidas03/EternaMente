@@ -15,18 +15,54 @@
 # ── Coroutines ───────────────────────────────────────────────
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepnames class kotlinx.coroutines.android.AndroidExceptionPreHandler {}
+-keepnames class kotlinx.coroutines.android.AndroidDispatcherFactory {}
+# Los campos `volatile` son usados por las máquinas de estado de corrutinas.
+# R8 los eliminaría como "sin efecto de lado", rompiendo la suspensión/reanudación.
+-keepclassmembernames class kotlinx.** {
+    volatile <fields>;
+}
 -dontwarn kotlinx.coroutines.**
 
 # ── Hilt ─────────────────────────────────────────────────────
 -keep class dagger.hilt.** { *; }
 -keep class javax.inject.** { *; }
 -keep class * extends dagger.hilt.android.lifecycle.HiltViewModel
+# EntryPoint e InstallIn son interfaces leídas por reflexión en el runtime de Hilt.
+-keep @dagger.hilt.EntryPoint interface *
+-keep @dagger.hilt.InstallIn interface *
 -dontwarn dagger.hilt.**
+
+# ── Hilt WorkManager (CognitiveAnalysisWorker usa @HiltWorker + @AssistedInject) ─
+# HiltWorkerFactory construye los workers por reflexión; sus clases no pueden ofuscarse.
+-keep class androidx.hilt.work.HiltWorkerFactory { *; }
+-keep class * extends androidx.hilt.work.HiltWorkerFactory { *; }
+# @AssistedInject genera fábricas cuyo nombre lo resuelve el grafo de Hilt en runtime.
+-keepclasseswithmembers class * {
+    @dagger.assisted.AssistedInject <init>(...);
+}
+-keep @dagger.assisted.AssistedFactory interface *
+-dontwarn dagger.assisted.**
 
 # ── Room ─────────────────────────────────────────────────────
 -keep class * extends androidx.room.RoomDatabase
 -keep @androidx.room.Entity class *
 -keep @androidx.room.Dao interface *
+# TypeConverters: la clase Converters se invoca por reflexión desde Room en runtime.
+# Sin esta regla R8 elimina/ofusca los métodos de conversión.
+-keep @androidx.room.TypeConverters class * { *; }
+# Los campos de las entidades Room se mapean por nombre a las columnas SQL.
+# R8 los ofuscaría rompiendo las queries y el schema export de KSP.
+-keepclassmembers @androidx.room.Entity class * {
+    <fields>;
+}
+# Paquetes de entidades del proyecto — GAP CRÍTICO:
+# Las reglas anteriores (`data.model.**`, `domain.model.**`) NO cubren
+# los paquetes reales donde viven las entidades Room de EternaMente.
+-keep class com.eternamente.app.data.local.database.entity.** { *; }
+-keep class com.eternamente.app.data.local.db.entity.** { *; }
+# Converters concreto del proyecto
+-keep class com.eternamente.app.data.local.database.Converters { *; }
 -dontwarn androidx.room.**
 
 # ── SQLCipher ────────────────────────────────────────────────
@@ -37,12 +73,21 @@
 # ── Firebase ─────────────────────────────────────────────────
 -keep class com.google.firebase.** { *; }
 -keep class com.google.android.gms.** { *; }
+# EternaMenteMessagingService: aunque el Manifest lo declara como entry point
+# (lo que normalmente basta para que R8 lo conserve), la retención explícita
+# protege también los métodos onNewToken/onMessageReceived y el companion object.
+-keep class com.eternamente.app.core.notifications.EternaMenteMessagingService { *; }
 -dontwarn com.google.firebase.**
 -dontwarn com.google.android.gms.**
 
 # ── TensorFlow Lite ──────────────────────────────────────────
 -keep class org.tensorflow.lite.** { *; }
 -keep class org.tensorflow.lite.support.** { *; }
+# Métodos nativos (JNI): R8 nunca debe renombrarlos porque son resueltos
+# por nombre desde la librería nativa libtenserflowlite_jni.so.
+-keepclasseswithmembernames class org.tensorflow.** {
+    native <methods>;
+}
 -dontwarn org.tensorflow.**
 
 # ── MPAndroidChart ───────────────────────────────────────────
