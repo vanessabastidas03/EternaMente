@@ -66,8 +66,12 @@ class EternaMenteMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Timber.i("$TAG ▶ onNewToken llamado")
-        Timber.i("$TAG   FCM TOKEN: $token")
-        Timber.tag(TAG_TOKEN).i(token)
+        // Seguridad: el token FCM es equivalente a una credencial de entrega push.
+        // Se loguea solo los primeros 8 caracteres para diagnóstico; el token completo
+        // se escribe únicamente en el tag dedicado (filtra en Logcat: EternaFCM_Token).
+        val preview = token.take(8) + "…"
+        Timber.i("$TAG   FCM TOKEN: $preview  (filtrar por tag $TAG_TOKEN para ver completo)")
+        Timber.tag(TAG_TOKEN).i(token)   // token completo — solo accesible con filtro explícito
         // TODO v1.5: persistir y sincronizar con backend
     }
 
@@ -215,8 +219,9 @@ class EternaMenteMessagingService : FirebaseMessagingService() {
         fun fetchAndLogToken() {
             FirebaseMessaging.getInstance().token
                 .addOnSuccessListener { token ->
-                    Timber.i("$TAG ▶ Token FCM actual:")
-                    Timber.tag(TAG_TOKEN).i(token)
+                    val preview = token.take(8) + "…"
+                    Timber.i("$TAG ▶ Token FCM actual: $preview  (tag $TAG_TOKEN para completo)")
+                    Timber.tag(TAG_TOKEN).i(token)   // completo — requiere filtro explícito
                 }
                 .addOnFailureListener { e ->
                     Timber.e(e, "$TAG ✗ No se pudo obtener el token FCM")

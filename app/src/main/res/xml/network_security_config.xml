@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration — EternaMente
+    Política explícita de seguridad de red (defensa en profundidad).
+
+    minSdk = 29 (Android 10): cleartext ya está deshabilitado por la plataforma,
+    pero declararlo aquí lo hace auditable y resistente a cambios futuros del SDK.
+
+    - cleartextTrafficPermitted="false": ninguna conexión HTTP sin cifrar.
+    - Solo se permiten conexiones HTTPS a cualquier dominio.
+    - Firebase, FCM y Google Play Services usan HTTPS por defecto.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Confiar solo en las CAs del sistema (no en CAs de usuario instaladas por el usuario). -->
+            <!-- Esto evita ataques MITM con certificados instalados por el usuario o MDM. -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

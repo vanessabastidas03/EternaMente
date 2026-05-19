@@ -54,7 +54,8 @@ class CognitiveAnalyzer @Inject constructor(
      */
     suspend fun analyze(userId: String): CognitiveAnalysisResult = withContext(Dispatchers.Default) {
         val pipelineStart = System.currentTimeMillis()
-        Timber.d("$TAG: analysis started for user $userId")
+        // Seguridad: loguear solo el prefijo del UUID para correlación sin exponer el ID completo.
+        Timber.d("$TAG: analysis started for user ${userId.take(8)}…")
 
         // 1 + 2 — Feature extraction and normalisation
         val rawVector  = featureExtractor.extractFeatures(userId)
